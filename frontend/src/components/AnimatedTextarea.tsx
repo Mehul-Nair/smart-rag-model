@@ -1,5 +1,5 @@
 import React, { forwardRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AnimatedTextareaProps {
   value: string;
@@ -145,26 +145,6 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
           )}
         </AnimatePresence>
       </motion.div>
-    );
-  }
-);
-
-AnimatedTextarea.displayName = "AnimatedTextarea";
-
-export default AnimatedTextarea;
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute -top-2 -right-2 w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center"
-          >
-            <motion.div
-              className="w-3 h-3 border-2 border-white border-t-transparent rounded-full"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            />
-          </motion.div>
-        )}
-      </div>
     );
   }
 );
