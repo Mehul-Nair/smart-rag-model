@@ -3,6 +3,7 @@ module.exports = {
     content: [
         "./src/**/*.{js,jsx,ts,tsx}",
     ],
+    darkMode: 'class', // Enable class-based dark mode
     theme: {
         extend: {
             animation: {
@@ -55,11 +56,11 @@ module.exports = {
                     }
                 },
                 typing: {
-                    '0%, 100%': { 
+                    '0%, 100%': {
                         opacity: '0.4',
                         transform: 'scale(1)'
                     },
-                    '50%': { 
+                    '50%': {
                         opacity: '1',
                         transform: 'scale(1.2)'
                     }
@@ -90,6 +91,20 @@ module.exports = {
                     light: 'rgba(255, 255, 255, 0.25)',
                     medium: 'rgba(255, 255, 255, 0.18)',
                     dark: 'rgba(255, 255, 255, 0.1)',
+                },
+                // Dark mode specific colors
+                dark: {
+                    50: '#f8fafc',
+                    100: '#f1f5f9',
+                    200: '#e2e8f0',
+                    300: '#cbd5e1',
+                    400: '#94a3b8',
+                    500: '#64748b',
+                    600: '#475569',
+                    700: '#334155',
+                    800: '#1e293b',
+                    900: '#0f172a',
+                    950: '#020617',
                 }
             },
             backdropBlur: {
@@ -110,6 +125,9 @@ module.exports = {
                 'glass-inset': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
                 'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
                 'soft-lg': '0 10px 40px -10px rgba(0, 0, 0, 0.1), 0 2px 10px -2px rgba(0, 0, 0, 0.04)',
+                // Dark mode shadows
+                'glass-dark': '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                'soft-dark': '0 2px 15px -3px rgba(0, 0, 0, 0.3), 0 10px 20px -2px rgba(0, 0, 0, 0.2)',
             }
         },
     },

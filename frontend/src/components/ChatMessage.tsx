@@ -57,6 +57,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   const isUser = message.sender === "user";
 
   console.log("ChatMessage content:", message.content, typeof message.content); // Debug log
+  console.log("Is user:", isUser);
+  console.log(
+    "Content type check:",
+    typeof message.content === "object" && "type" in message.content
+  );
 
   // Handle different response types
   if (
@@ -65,6 +70,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     "type" in message.content
   ) {
     const responseType = message.content.type;
+    console.log("Response type in ChatMessage:", responseType);
 
     if (responseType === "product_suggestion") {
       console.log("Rendering ProductResponse component"); // Debug log
@@ -120,12 +126,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      transition={{ 
-        duration: 0.4, 
+      transition={{
+        duration: 0.4,
         ease: [0.25, 0.46, 0.45, 0.94],
         type: "spring",
         stiffness: 300,
-        damping: 30
+        damping: 30,
       }}
       className={`flex items-start space-x-3 ${
         isUser ? "flex-row-reverse space-x-reverse" : ""
@@ -154,7 +160,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           className={`inline-block px-5 py-3 rounded-2xl shadow-lg max-w-xs lg:max-w-md backdrop-blur-sm border ${
             isUser
               ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white border-white/20"
-              : "bg-white/80 text-gray-800 border-white/50"
+              : "bg-white/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-100 border-white/50 dark:border-gray-600/50"
           }`}
           whileHover={{ scale: 1.02, y: -2 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
@@ -168,7 +174,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
 
         {/* Timestamp */}
         <div
-          className={`text-xs text-gray-500 mt-1 ${
+          className={`text-xs text-gray-500 dark:text-gray-400 mt-1 ${
             isUser ? "text-right" : "text-left"
           }`}
         >

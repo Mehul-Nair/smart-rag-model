@@ -63,14 +63,14 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
       {/* Content */}
       <div className="flex-1">
         {/* Summary */}
-        <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100 mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-700 mb-4">
           <div className="flex items-center space-x-2 mb-2">
             <Sparkles className="w-4 h-4 text-primary-500" />
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Product Suggestions
             </span>
           </div>
-          <div className="text-sm leading-relaxed text-gray-800">
+          <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-200">
             {data.summary}
           </div>
         </div>
@@ -83,7 +83,7 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
             ))}
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 border border-yellow-200 mb-3">
+          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-2xl p-6 border border-yellow-200 dark:border-yellow-700/50 mb-3">
             <div className="text-center">
               <div className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg
@@ -100,10 +100,10 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
                 No Products Found
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
                 {data.summary ||
                   "We couldn't find any products matching your criteria."}
               </p>
@@ -143,7 +143,7 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
         )}
 
         {/* Timestamp */}
-        <div className="text-xs text-gray-500 text-left">
+        <div className="text-xs text-gray-500 dark:text-gray-400 text-left">
           {timestamp.toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",

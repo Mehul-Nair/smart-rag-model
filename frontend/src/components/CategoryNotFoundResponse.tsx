@@ -37,22 +37,22 @@ const CategoryNotFoundResponse: React.FC<CategoryNotFoundResponseProps> = ({
       {/* Content */}
       <div className="flex-1">
         {/* Error Message */}
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl px-4 py-3 border border-orange-200 mb-4">
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-2xl px-4 py-3 border border-orange-200 dark:border-orange-700/50 mb-4">
           <div className="flex items-center space-x-2 mb-2">
-            <AlertCircle className="w-4 h-4 text-orange-600" />
-            <span className="text-sm font-medium text-orange-800">
+            <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+            <span className="text-sm font-medium text-orange-800 dark:text-orange-300">
               Category Not Found
             </span>
           </div>
-          <div className="text-sm leading-relaxed text-orange-700">
+          <div className="text-sm leading-relaxed text-orange-700 dark:text-orange-300">
             We don't have <strong>{data.requested_category}</strong> in our
             catalog.
           </div>
         </div>
 
         {/* Available Categories */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100 mb-3">
-          <div className="text-sm text-blue-800 mb-3">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-4 border border-blue-100 dark:border-blue-800/50 mb-3">
+          <div className="text-sm text-blue-800 dark:text-blue-300 mb-3">
             Here are the categories we do have:
           </div>
           <CategoryChips
@@ -62,7 +62,7 @@ const CategoryNotFoundResponse: React.FC<CategoryNotFoundResponseProps> = ({
         </div>
 
         {/* Timestamp */}
-        <div className="text-xs text-gray-500 text-left">
+        <div className="text-xs text-gray-500 dark:text-gray-400 text-left">
           {timestamp.toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",

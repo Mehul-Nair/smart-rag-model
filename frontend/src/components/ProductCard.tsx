@@ -18,50 +18,52 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
     <motion.div
       initial={{ opacity: 0, y: 30, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ 
-        duration: 0.5, 
+      transition={{
+        duration: 0.5,
         delay: index * 0.1,
         type: "spring",
         stiffness: 300,
-        damping: 25
+        damping: 25,
       }}
-      whileHover={{ 
-        y: -8, 
+      whileHover={{
+        y: -8,
         scale: 1.02,
-        transition: { type: "spring", stiffness: 400, damping: 25 }
+        transition: { type: "spring", stiffness: 400, damping: 25 },
       }}
-      className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden hover:shadow-2xl transition-all duration-300 group"
+      className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 dark:border-gray-600/50 overflow-hidden hover:shadow-2xl transition-all duration-300 group"
     >
       {/* Product Image Placeholder */}
-      <div className="h-48 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
+      <div className="h-48 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20 flex items-center justify-center relative overflow-hidden">
         {/* Animated background */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-br from-blue-200/30 to-purple-200/30"
-          animate={{ 
+          animate={{
             background: [
               "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)",
               "linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)",
-              "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)"
-            ]
+              "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)",
+            ],
           }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         />
         <div className="text-center">
-          <motion.div 
+          <motion.div
             className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-lg"
             whileHover={{ rotate: 10, scale: 1.1 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
           >
             <ShoppingCart className="w-8 h-8 text-white" />
           </motion.div>
-          <p className="text-sm text-gray-600 font-semibold">Product Image</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold">
+            Product Image
+          </p>
         </div>
       </div>
 
       {/* Product Info */}
       <div className="p-5">
         <div className="flex items-start justify-between mb-2">
-          <h3 className="font-bold text-gray-900 text-sm leading-tight max-h-10 overflow-hidden group-hover:text-blue-600 transition-colors duration-200">
+          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight max-h-10 overflow-hidden group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
             {product.name}
           </h3>
           <div className="flex items-center space-x-1 ml-2">
@@ -71,7 +73,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
             >
               <Star className="w-3 h-3 text-yellow-400 fill-current" />
             </motion.div>
-            <span className="text-xs text-gray-500 font-medium">4.5</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+              4.5
+            </span>
           </div>
         </div>
 

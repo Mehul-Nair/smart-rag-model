@@ -308,10 +308,10 @@ def reject_node(state: AgentState) -> AgentState:
     except Exception as e:
         print(f"Error in reject_node: {e}")
         # Ultimate fallback - no hardcoded assumptions
-        state["llm_response"] = (
-            "I'm a home decor assistant. I can help you find various home decor products. "
-            "Try asking about specific products you're looking for!"
-        )
+    state["llm_response"] = (
+        "I'm a home decor assistant. I can help you find various home decor products. "
+        "Try asking about specific products you're looking for!"
+    )
 
     return state
 

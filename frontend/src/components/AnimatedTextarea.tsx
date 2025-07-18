@@ -13,7 +13,19 @@ interface AnimatedTextareaProps {
 }
 
 const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
-  ({ value, onChange, onKeyPress, onFocus, onBlur, placeholder, isLoading, disabled }, ref) => {
+  (
+    {
+      value,
+      onChange,
+      onKeyPress,
+      onFocus,
+      onBlur,
+      placeholder,
+      isLoading,
+      disabled,
+    },
+    ref
+  ) => {
     const [isFocused, setIsFocused] = React.useState(false);
 
     const handleFocus = () => {
@@ -27,91 +39,63 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
     };
 
     return (
-      <motion.div 
-        className="relative"
-        animate={{ 
-          scale: isFocused ? 1.02 : 1,
-        }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      >
-        <div className="relative">
-          {/* Gradient border container */}
+      <div className="relative">
+        {/* Animated border container */}
+        <div className="relative rounded-2xl p-[1px]">
+          {/* Animated gradient border */}
           <motion.div
-            className="absolute inset-0 rounded-2xl p-[2px] overflow-hidden"
+            className="absolute inset-0 rounded-2xl"
             animate={{
-              background: (isFocused || isLoading) ? [
-                "linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff)",
-                "linear-gradient(90deg, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff, #ff6b6b)",
-                "linear-gradient(135deg, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff, #ff6b6b, #4ecdc4)",
-                "linear-gradient(180deg, #96ceb4, #feca57, #ff9ff3, #54a0ff, #ff6b6b, #4ecdc4, #45b7d1)",
-                "linear-gradient(225deg, #feca57, #ff9ff3, #54a0ff, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4)",
-                "linear-gradient(270deg, #ff9ff3, #54a0ff, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57)",
-                "linear-gradient(315deg, #54a0ff, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3)",
-                "linear-gradient(360deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff)"
-              ] : "transparent"
+              background: [
+                "conic-gradient(from 0deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff, #ff6b6b)",
+                "conic-gradient(from 90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff, #ff6b6b)",
+                "conic-gradient(from 180deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff, #ff6b6b)",
+                "conic-gradient(from 270deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff, #ff6b6b)",
+                "conic-gradient(from 360deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff, #ff6b6b)",
+              ],
             }}
             transition={{
-              duration: (isFocused || isLoading) ? 3 : 0.3,
-              repeat: (isFocused || isLoading) ? Infinity : 0,
+              duration: 2,
+              repeat: Infinity,
               ease: "linear",
             }}
-          >
-            <div className="w-full h-full bg-white rounded-2xl" />
-          </motion.div>
+            style={{
+              opacity: isLoading ? 1 : 0,
+            }}
+          />
 
-          {/* Main container */}
-          <motion.div
-            className="relative rounded-2xl overflow-hidden"
-            animate={{
-              boxShadow: isLoading 
-                ? [
-                    "0 0 0 0 rgba(255, 107, 107, 0.4)",
-                    "0 0 0 8px rgba(255, 107, 107, 0.1)",
-                    "0 0 0 0 rgba(255, 107, 107, 0)",
-                  ]
-                : isFocused
-                ? "0 8px 32px rgba(255, 107, 107, 0.15)"
-                : "0 4px 16px rgba(0, 0, 0, 0.1)"
-            }}
-            transition={{
-              duration: isLoading ? 2 : 0.3,
-              repeat: isLoading ? Infinity : 0,
-              ease: "easeInOut",
-            }}
-          >
-            {/* Background gradient */}
+          {/* Inner container with background */}
+          <div className="relative rounded-2xl overflow-hidden">
+            {/* Background */}
             <div
-              className="absolute inset-0 rounded-2xl pointer-events-none"
+              className="absolute inset-0 rounded-2xl pointer-events-none z-0"
               style={{
                 background:
                   isFocused || isLoading
-                    ? "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%)"
-                    : "linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 100%)",
+                    ? "rgba(255, 255, 255, 0.95)"
+                    : "rgba(255, 255, 255, 0.8)",
               }}
             />
-            {/* Animated shimmer effect for loading */}
-            {isLoading && (
-              <motion.div
-                className="absolute inset-0 rounded-2xl pointer-events-none"
-                animate={{ 
-                  background: [
-                    "linear-gradient(90deg, transparent 0%, rgba(255, 107, 107, 0.3) 50%, transparent 100%)",
-                    "linear-gradient(90deg, transparent 0%, rgba(255, 107, 107, 0.3) 50%, transparent 100%)"
-                  ],
-                  x: ["-100%", "100%"]
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: Infinity,
-                  ease: "linear",
-                }}
-                style={{
-                  background: "linear-gradient(90deg, transparent 0%, rgba(255, 107, 107, 0.3) 50%, transparent 100%)",
-                  width: "100%",
-                  height: "100%",
-                }}
-              />
-            )}
+            {/* Dark mode background */}
+            <div
+              className="absolute inset-0 rounded-2xl pointer-events-none dark:block hidden z-0"
+              style={{
+                background:
+                  isFocused || isLoading
+                    ? "rgba(15, 23, 42, 0.95)"
+                    : "rgba(15, 23, 42, 0.9)",
+              }}
+            />
+
+            {/* Inner shadow effect - on top of background */}
+            <div
+              className="absolute inset-0 rounded-2xl pointer-events-none z-10"
+              style={{
+                boxShadow: isLoading
+                  ? "inset 0 0 10px rgba(255, 107, 107, 0.3), inset 0 0 20px rgba(78, 205, 196, 0.25), inset 0 0 30px rgba(69, 183, 209, 0.2), inset 0 0 40px rgba(150, 206, 180, 0.15), inset 0 0 50px rgba(254, 202, 87, 0.1), inset 0 0 60px rgba(255, 159, 243, 0.08)"
+                  : "none",
+              }}
+            />
 
             <textarea
               ref={ref}
@@ -122,18 +106,22 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
               onBlur={handleBlur}
               placeholder={placeholder}
               disabled={disabled}
-              className={`w-full min-h-[52px] max-h-32 px-5 py-4 bg-transparent backdrop-blur-sm rounded-2xl resize-none outline-none border-none focus:outline-none focus:ring-0 focus:border-none transition-all duration-300 relative z-10 ${
+              className={`w-full min-h-[52px] max-h-32 px-5 py-4 bg-transparent rounded-2xl resize-none transition-all duration-300 relative z-10 ${
                 disabled ? "cursor-not-allowed opacity-60" : "cursor-text"
               } ${
-                isLoading ? "text-gray-600" : "text-gray-800"
-              } placeholder-gray-500 font-medium`}
+                isLoading
+                  ? "text-gray-600 dark:text-gray-400"
+                  : "text-gray-800 dark:text-gray-100"
+              } placeholder-gray-500 dark:placeholder-gray-400 font-medium`}
               style={{
                 fontFamily: "inherit",
                 lineHeight: "1.5",
+                border: "none",
+                outline: "none",
                 boxShadow: "none",
               }}
             />
-          </motion.div>
+          </div>
         </div>
 
         {/* Smart indicator */}
@@ -150,7 +138,11 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
                   <motion.div
                     className="w-3 h-3 border-2 border-white border-t-transparent rounded-full"
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
                   />
                 </div>
               ) : (
@@ -165,7 +157,7 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     );
   }
 );

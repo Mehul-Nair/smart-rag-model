@@ -22,7 +22,7 @@ backend/data_source/
 Thumbs.db
 
 # VSCode
-.vscode/
+.vscode/ 
 
 # Frontend
 frontend/node_modules/

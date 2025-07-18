@@ -55,14 +55,14 @@ const BudgetConstraintResponse: React.FC<BudgetConstraintResponseProps> = ({
       {/* Content */}
       <div className="flex-1">
         {/* Message */}
-        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl px-4 py-3 border border-yellow-200 mb-4">
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-2xl px-4 py-3 border border-yellow-200 dark:border-yellow-700/50 mb-4">
           <div className="flex items-center space-x-2 mb-2">
-            <DollarSign className="w-4 h-4 text-yellow-600" />
-            <span className="text-sm font-medium text-yellow-800">
+            <DollarSign className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
               Budget Constraint
             </span>
           </div>
-          <div className="text-sm leading-relaxed text-yellow-700">
+          <div className="text-sm leading-relaxed text-yellow-700 dark:text-yellow-300">
             We found <strong>{data.category}</strong> but none under your budget
             of <strong>{data.requested_budget}</strong>.
           </div>
@@ -95,7 +95,7 @@ const BudgetConstraintResponse: React.FC<BudgetConstraintResponseProps> = ({
         </div>
 
         {/* Timestamp */}
-        <div className="text-xs text-gray-500 text-left">
+        <div className="text-xs text-gray-500 dark:text-gray-400 text-left">
           {timestamp.toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
