@@ -228,7 +228,7 @@ function App() {
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
               <Sparkles className="w-6 h-6 text-white drop-shadow-sm" />
-            </div>
+            </motion.div>
             <div>
               <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                 Decor Intelligence
@@ -248,7 +248,7 @@ function App() {
               transition={{ duration: 2, repeat: Infinity }}
             />
             <span className="font-medium">Online</span>
-          </div>
+          </motion.div>
         </div>
       </motion.header>
 
@@ -353,7 +353,7 @@ function App() {
                 Test Product Cards
               </motion.button>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </div>
