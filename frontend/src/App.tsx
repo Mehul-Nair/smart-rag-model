@@ -212,7 +212,7 @@ function App() {
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-transparent to-purple-50/20 pointer-events-none" />
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-blue-200/20 to-purple-200/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-br from-purple-200/20 to-pink-200/20 rounded-full blur-3xl pointer-events-none" />
-      
+
       {/* Header */}
       <motion.header
         initial={{ y: -20, opacity: 0 }}
@@ -222,7 +222,7 @@ function App() {
       >
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <motion.div 
+            <motion.div
               className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg"
               whileHover={{ scale: 1.05, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
@@ -236,13 +236,13 @@ function App() {
               <p className="text-sm text-gray-500 font-medium">Your Smart Design Assistant</p>
             </div>
           </div>
-          <motion.div 
+          <motion.div
             className="flex items-center space-x-2 text-sm text-gray-500"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            <motion.div 
+            <motion.div
               className="w-2 h-2 bg-green-400 rounded-full shadow-sm"
               animate={{ scale: [1, 1.2, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
@@ -254,7 +254,7 @@ function App() {
 
       {/* Chat Container */}
       <div className="flex-1 max-w-4xl mx-auto w-full px-4 py-6 relative z-10">
-        <motion.div 
+        <motion.div
           className="bg-white/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 h-[600px] flex flex-col relative overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -262,7 +262,7 @@ function App() {
         >
           {/* Chat container background */}
           <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/10 to-white/5 pointer-events-none" />
-          
+
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
             <AnimatePresence>
@@ -283,7 +283,7 @@ function App() {
                 transition={{ duration: 0.3 }}
                 className="flex items-start space-x-3"
               >
-                <motion.div 
+                <motion.div
                   className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg"
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
@@ -300,10 +300,10 @@ function App() {
           </div>
 
           {/* Input Area */}
-          <motion.div 
+          <motion.div
             className="p-6 border-t border-white/30 bg-white/20 backdrop-blur-sm relative"
-            animate={{ 
-              backgroundColor: isInputFocused ? "rgba(255, 255, 255, 0.4)" : "rgba(255, 255, 255, 0.2)" 
+            animate={{
+              backgroundColor: isInputFocused ? "rgba(255, 255, 255, 0.4)" : "rgba(255, 255, 255, 0.2)"
             }}
             transition={{ duration: 0.3 }}
           >
