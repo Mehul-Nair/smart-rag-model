@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+openai
+langchain[openai,docarray]
+langgraph
+pandas
+python-dotenv
+tiktoken
+faiss-cpu
+pydantic
+langchain_community
+openpyxl
