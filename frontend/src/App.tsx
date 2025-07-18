@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, Sparkles } from "lucide-react";
+import { Send, Bot, Sparkles, MessageCircle } from "lucide-react";
 import ChatMessage from "./components/ChatMessage";
 import AnimatedTextarea from "./components/AnimatedTextarea";
 import TypingIndicator from "./components/TypingIndicator";
@@ -48,14 +48,14 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content:
-        "Hello! I'm your AI assistant for home decor products. I can help you find fabrics, rugs, sofas, curtains, and other furniture items. What are you looking for today?",
+      content: "Hello! I'm your intelligent home decor assistant. I can help you discover beautiful fabrics, rugs, sofas, curtains, and furniture pieces. What would you like to explore today?",
       sender: "ai",
       timestamp: new Date(),
     },
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -207,37 +207,64 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex flex-col relative overflow-hidden">
+      {/* Background Elements */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-transparent to-purple-50/20 pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-blue-200/20 to-purple-200/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-br from-purple-200/20 to-pink-200/20 rounded-full blur-3xl pointer-events-none" />
+      
       {/* Header */}
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-white/80 backdrop-blur-md border-b border-gray-200/50 shadow-sm"
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="bg-white/70 backdrop-blur-xl border-b border-white/20 shadow-sm relative z-10"
       >
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
+            <motion.div 
+              className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg"
+              whileHover={{ scale: 1.05, rotate: 5 }}
+              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            >
+              <Sparkles className="w-6 h-6 text-white drop-shadow-sm" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                Smart AI Agent
+              <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                Decor Intelligence
               </h1>
-              <p className="text-sm text-gray-600">Home Decor Assistant</p>
+              <p className="text-sm text-gray-500 font-medium">Your Smart Design Assistant</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-            <span>Online</span>
+          <motion.div 
+            className="flex items-center space-x-2 text-sm text-gray-500"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <motion.div 
+              className="w-2 h-2 bg-green-400 rounded-full shadow-sm"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+            <span className="font-medium">Online</span>
           </div>
         </div>
       </motion.header>
 
       {/* Chat Container */}
-      <div className="flex-1 max-w-4xl mx-auto w-full px-4 py-6">
-        <div className="bg-white/60 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 h-[600px] flex flex-col">
+      <div className="flex-1 max-w-4xl mx-auto w-full px-4 py-6 relative z-10">
+        <motion.div 
+          className="bg-white/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 h-[600px] flex flex-col relative overflow-hidden"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+        >
+          {/* Chat container background */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/10 to-white/5 pointer-events-none" />
+          
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
             <AnimatePresence>
               {messages.map((message) => (
                 <ChatMessage
@@ -252,12 +279,18 @@ function App() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
                 className="flex items-start space-x-3"
               >
-                <div className="w-8 h-8 bg-gradient-to-r from-primary-400 to-primary-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <motion.div 
+                  className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg"
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
                   <Bot className="w-4 h-4 text-white" />
-                </div>
-                <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100 max-w-xs lg:max-w-md">
+                </motion.div>
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-lg border border-white/50 max-w-xs lg:max-w-md">
                   <TypingIndicator />
                 </div>
               </motion.div>
@@ -267,46 +300,61 @@ function App() {
           </div>
 
           {/* Input Area */}
-          <div className="p-6 border-t border-gray-100/50">
-            <div className="flex items-end space-x-3">
+          <motion.div 
+            className="p-6 border-t border-white/30 bg-white/20 backdrop-blur-sm relative"
+            animate={{ 
+              backgroundColor: isInputFocused ? "rgba(255, 255, 255, 0.4)" : "rgba(255, 255, 255, 0.2)" 
+            }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex items-end space-x-4">
               <div className="flex-1">
                 <AnimatedTextarea
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask me about home decor products..."
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
+                  placeholder="Describe your perfect space..."
                   isLoading={isLoading}
                   disabled={isLoading}
                 />
               </div>
               <motion.button
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isLoading}
-                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg ${
                   inputValue.trim() && !isLoading
-                    ? "bg-primary-500 hover:bg-primary-600 text-white shadow-lg hover:shadow-xl"
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    ? "bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl"
+                    : "bg-gray-200/80 text-gray-400 cursor-not-allowed backdrop-blur-sm"
                 }`}
               >
-                <Send className="w-5 h-5" />
+                <motion.div
+                  animate={isLoading ? { rotate: 360 } : { rotate: 0 }}
+                  transition={isLoading ? { duration: 1, repeat: Infinity, ease: "linear" } : {}}
+                >
+                  <Send className="w-5 h-5" />
+                </motion.div>
               </motion.button>
             </div>
 
-            <div className="mt-3 flex items-center justify-between">
-              <div className="text-xs text-gray-500">
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-xs text-gray-500 font-medium">
                 Press Enter to send, Shift+Enter for new line
               </div>
-              <button
+              <motion.button
                 onClick={handleTestProductResponse}
-                className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1 rounded-lg transition-colors duration-200"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="text-xs bg-white/60 hover:bg-white/80 text-gray-600 px-3 py-1.5 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/50 font-medium shadow-sm"
               >
                 Test Product Cards
-              </button>
+              </motion.button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

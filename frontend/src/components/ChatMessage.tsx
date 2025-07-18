@@ -117,44 +117,54 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   // Handle regular text message
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.95 }}
+      transition={{ 
+        duration: 0.4, 
+        ease: [0.25, 0.46, 0.45, 0.94],
+        type: "spring",
+        stiffness: 300,
+        damping: 30
+      }}
       className={`flex items-start space-x-3 ${
         isUser ? "flex-row-reverse space-x-reverse" : ""
       }`}
     >
       {/* Avatar */}
-      <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+      <motion.div
+        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg ${
           isUser
-            ? "bg-gradient-to-r from-primary-500 to-primary-600"
-            : "bg-gradient-to-r from-gray-400 to-gray-500"
+            ? "bg-gradient-to-br from-blue-500 to-purple-600"
+            : "bg-gradient-to-br from-slate-400 to-slate-600"
         }`}
+        whileHover={{ scale: 1.1, rotate: 5 }}
+        transition={{ type: "spring", stiffness: 400, damping: 10 }}
       >
         {isUser ? (
           <User className="w-4 h-4 text-white" />
         ) : (
           <Bot className="w-4 h-4 text-white" />
         )}
-      </div>
+      </motion.div>
 
       {/* Message Bubble */}
       <div className={`flex-1 ${isUser ? "text-right" : "text-left"}`}>
-        <div
-          className={`inline-block px-4 py-3 rounded-2xl shadow-sm max-w-xs lg:max-w-md ${
+        <motion.div
+          className={`inline-block px-5 py-3 rounded-2xl shadow-lg max-w-xs lg:max-w-md backdrop-blur-sm border ${
             isUser
-              ? "bg-primary-500 text-white"
-              : "bg-white text-gray-800 border border-gray-100"
+              ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white border-white/20"
+              : "bg-white/80 text-gray-800 border-white/50"
           }`}
+          whileHover={{ scale: 1.02, y: -2 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
         >
-          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+          <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
             {typeof message.content === "string"
               ? message.content
               : "Product data received"}
           </div>
-        </div>
+        </motion.div>
 
         {/* Timestamp */}
         <div
