@@ -13,6 +13,8 @@ venv/
 # Data and FAISS vector store
 backend/data/
 backend/data_source/
+backend/trained_deberta_model/
+backend/trained_deberta_ner_model/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/

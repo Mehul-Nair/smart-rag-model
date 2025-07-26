@@ -248,3 +248,68 @@ button:active {
   transition: background-color 0.3s ease, border-color 0.3s ease,
     color 0.3s ease;
 }
+
+/* Carousel scrollbar hiding utilities */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: none; /* Firefox */
+  overflow: -moz-scrollbars-none; /* Old Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+  width: 0; /* Remove scrollbar space */
+  background: transparent; /* Optional: just make scrollbar invisible */
+}
+
+/* Enhanced carousel styling */
+.carousel-container {
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+}
+
+.carousel-item {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Prevent layout shifts during chat transitions */
+.chat-message-container {
+  min-height: 0;
+  contain: layout style paint;
+}
+
+/* Smooth transitions for all chat elements */
+.chat-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Prevent content jumping */
+.content-stable {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Ensure proper flex behavior */
+.flex-stable {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Carousel button stability */
+.carousel-button {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+.carousel-button:hover {
+  transform: translateZ(0) scale(1.05);
+}
+
+/* Prevent layout shifts during hover */
+.carousel-button-container {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}

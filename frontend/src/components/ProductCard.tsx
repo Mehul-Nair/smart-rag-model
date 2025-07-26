@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { ExternalLink, ShoppingCart, Star } from "lucide-react";
+import { ExternalLink, Star, Image } from "lucide-react";
 
 interface Product {
   name: string;
@@ -30,31 +30,31 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
         scale: 1.02,
         transition: { type: "spring", stiffness: 400, damping: 25 },
       }}
-      className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 dark:border-gray-600/50 overflow-hidden hover:shadow-2xl transition-all duration-300 group"
+      className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 dark:border-gray-600/50 overflow-hidden hover:shadow-2xl transition-all duration-300 group w-full"
     >
       {/* Product Image Placeholder */}
-      <div className="h-48 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20 flex items-center justify-center relative overflow-hidden">
-        {/* Animated background */}
+      <div className="h-48 bg-gradient-to-br from-gray-100 via-gray-50 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-500 flex items-center justify-center relative overflow-hidden">
+        {/* Subtle animated background */}
         <motion.div
-          className="absolute inset-0 bg-gradient-to-br from-blue-200/30 to-purple-200/30"
+          className="absolute inset-0 opacity-30"
           animate={{
             background: [
-              "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)",
-              "linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)",
-              "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)",
+              "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)",
+              "linear-gradient(135deg, rgba(147, 51, 234, 0.05) 0%, rgba(236, 72, 153, 0.05) 100%)",
+              "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)",
             ],
           }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         />
-        <div className="text-center">
+        <div className="text-center z-10">
           <motion.div
-            className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-2 shadow-lg"
-            whileHover={{ rotate: 10, scale: 1.1 }}
+            className="w-20 h-20 bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-500 dark:to-gray-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg"
+            whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
           >
-            <ShoppingCart className="w-8 h-8 text-white" />
+            <Image className="w-10 h-10 text-gray-500 dark:text-gray-300" />
           </motion.div>
-          <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold">
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
             Product Image
           </p>
         </div>
@@ -62,11 +62,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
 
       {/* Product Info */}
       <div className="p-5">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight max-h-10 overflow-hidden group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
+        <div className="flex items-start justify-between mb-3">
+          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight flex-1 mr-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
             {product.name}
           </h3>
-          <div className="flex items-center space-x-1 ml-2">
+          <div className="flex items-center space-x-1 flex-shrink-0">
             <motion.div
               whileHover={{ scale: 1.2, rotate: 72 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
@@ -81,7 +81,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
 
         <div className="flex items-center justify-between">
           <div className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            {product.price}
+            ₹{product.price}
           </div>
           <motion.a
             href={product.url}

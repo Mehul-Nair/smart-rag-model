@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Bot, Sparkles } from "lucide-react";
+import { Bot, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import ProductCard from "./ProductCard";
 import BudgetSuggestion from "./BudgetSuggestion";
 
@@ -22,6 +22,96 @@ interface ProductResponseProps {
   onCategoryClick?: (category: string) => void;
   userQuery?: string;
 }
+
+// Carousel Component
+const ProductCarousel: React.FC<{ products: Product[] }> = ({ products }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const productsPerView = 3; // Show 3 products at a time
+  const maxIndex = Math.max(0, products.length - productsPerView);
+
+  const scrollToIndex = (index: number) => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const cardWidth = container.scrollWidth / products.length;
+      container.scrollTo({
+        left: index * cardWidth,
+        behavior: "smooth",
+      });
+    }
+    setCurrentIndex(index);
+  };
+
+  const nextSlide = () => {
+    if (currentIndex < maxIndex) {
+      scrollToIndex(currentIndex + 1);
+    }
+  };
+
+  const prevSlide = () => {
+    if (currentIndex > 0) {
+      scrollToIndex(currentIndex - 1);
+    }
+  };
+
+  return (
+    <div className="relative w-full carousel-button-container">
+      {/* Navigation Buttons */}
+      {currentIndex > 0 && (
+        <button
+          onClick={prevSlide}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-xl carousel-button"
+        >
+          <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+        </button>
+      )}
+
+      {currentIndex < maxIndex && (
+        <button
+          onClick={nextSlide}
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-xl carousel-button"
+        >
+          <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+        </button>
+      )}
+
+      {/* Carousel Container */}
+      <div
+        ref={scrollContainerRef}
+        className="flex gap-6 overflow-x-auto scrollbar-hide carousel-container px-4"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {products.map((product, index) => (
+          <div key={index} className="carousel-item w-80 max-w-full">
+            <ProductCard product={product} index={index} />
+          </div>
+        ))}
+      </div>
+
+      {/* Dots Indicator */}
+      {products.length > productsPerView && (
+        <div className="flex justify-center mt-6 space-x-2">
+          {Array.from({ length: maxIndex + 1 }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => scrollToIndex(i)}
+              className={`w-3 h-3 rounded-full transition-colors duration-200 ${
+                i === currentIndex
+                  ? "bg-primary-500"
+                  : "bg-gray-300 dark:bg-gray-600"
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ProductResponse: React.FC<ProductResponseProps> = ({
   data,
@@ -47,13 +137,15 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
   };
 
   const originalBudget = userQuery ? extractBudget(userQuery) : null;
+  const shouldUseCarousel = data.products.length > 4;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="flex items-start space-x-3"
+      className="flex items-start space-x-3 chat-message-container"
     >
       {/* Avatar */}
       <div className="w-8 h-8 bg-gradient-to-r from-primary-400 to-primary-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -61,7 +153,7 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1">
+      <div className="flex-1 flex-stable">
         {/* Summary */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-700 mb-4">
           <div className="flex items-center space-x-2 mb-2">
@@ -75,12 +167,18 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
           </div>
         </div>
 
-        {/* Products Grid or No Products Message */}
+        {/* Products Display */}
         {data.products.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-3">
-            {data.products.map((product, index) => (
-              <ProductCard key={index} product={product} index={index} />
-            ))}
+          <div className="mb-3 content-stable">
+            {shouldUseCarousel ? (
+              <ProductCarousel products={data.products} />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data.products.map((product, index) => (
+                  <ProductCard key={index} product={product} index={index} />
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-2xl p-6 border border-yellow-200 dark:border-yellow-700/50 mb-3">

@@ -138,6 +138,28 @@ function App() {
       ) {
         console.log("Processing category_list");
         parsedContent = data.response as string[];
+      } else if (
+        data.type === "clarification" &&
+        typeof data.response === "object" &&
+        data.response.message
+      ) {
+        console.log("Processing clarification");
+        parsedContent = data.response.message;
+      } else if (
+        data.type === "greeting" &&
+        typeof data.response === "object"
+      ) {
+        console.log("Processing greeting");
+        parsedContent = data.response.message;
+      } else if (data.type === "error") {
+        // Handle error type from backend
+        if (typeof data.response === "object" && data.response.message) {
+          parsedContent = data.response.message;
+        } else if (typeof data.response === "string") {
+          parsedContent = data.response;
+        } else {
+          parsedContent = "An unknown error occurred.";
+        }
       } else {
         console.log("Processing as string response");
         parsedContent = data.response as string;
@@ -195,18 +217,43 @@ function App() {
       products: [
         {
           name: "Modern Velvet Sofa",
-          price: "$1,299",
+          price: "12999",
           url: "https://example.com/sofa1",
         },
         {
           name: "Persian Area Rug",
-          price: "$899",
+          price: "8999",
           url: "https://example.com/rug1",
         },
         {
           name: "Elegant Curtain Set",
-          price: "$299",
+          price: "2999",
           url: "https://example.com/curtain1",
+        },
+        {
+          name: "Alison Bed Side Table",
+          price: "13498",
+          url: "https://example.com/bedside1",
+        },
+        {
+          name: "Marcus Bedside Table",
+          price: "3599",
+          url: "https://example.com/bedside2",
+        },
+        {
+          name: "Bonin Bedside Table",
+          price: "5999",
+          url: "https://example.com/bedside3",
+        },
+        {
+          name: "Luxury Fabric Collection",
+          price: "2499",
+          url: "https://example.com/fabric1",
+        },
+        {
+          name: "Handmade Wool Rug",
+          price: "15999",
+          url: "https://example.com/rug2",
         },
       ],
     };
@@ -449,8 +496,8 @@ function App() {
           <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/10 to-white/5 dark:from-gray-700/20 dark:via-gray-700/10 dark:to-gray-700/5 pointer-events-none" />
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
-            <AnimatePresence>
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 relative min-h-0">
+            <AnimatePresence mode="wait">
               {messages.map((message) => (
                 <ChatMessage
                   key={message.id}
@@ -466,7 +513,7 @@ function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
-                className="flex items-start space-x-3"
+                className="flex items-start space-x-3 w-full"
               >
                 <motion.div
                   className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg"

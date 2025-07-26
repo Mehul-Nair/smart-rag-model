@@ -75,35 +75,84 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     if (responseType === "product_suggestion") {
       console.log("Rendering ProductResponse component"); // Debug log
       return (
-        <ProductResponse
-          data={message.content as ProductResponseData}
-          timestamp={message.timestamp}
-          onCategoryClick={onCategoryClick}
-          userQuery={message.userQuery}
-        />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full"
+        >
+          <ProductResponse
+            data={message.content as ProductResponseData}
+            timestamp={message.timestamp}
+            onCategoryClick={onCategoryClick}
+            userQuery={message.userQuery}
+          />
+        </motion.div>
       );
     }
 
     if (responseType === "category_not_found") {
       console.log("Rendering CategoryNotFoundResponse component"); // Debug log
       return (
-        <CategoryNotFoundResponse
-          data={message.content as CategoryNotFoundData}
-          timestamp={message.timestamp}
-          onCategoryClick={onCategoryClick || (() => {})}
-        />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full"
+        >
+          <CategoryNotFoundResponse
+            data={message.content as CategoryNotFoundData}
+            timestamp={message.timestamp}
+            onCategoryClick={onCategoryClick || (() => {})}
+          />
+        </motion.div>
       );
     }
 
     if (responseType === "budget_constraint") {
       console.log("Rendering BudgetConstraintResponse component"); // Debug log
       return (
-        <BudgetConstraintResponse
-          data={message.content as BudgetConstraintData}
-          timestamp={message.timestamp}
-          onCategoryClick={onCategoryClick}
-          userQuery={message.userQuery}
-        />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full"
+        >
+          <BudgetConstraintResponse
+            data={message.content as BudgetConstraintData}
+            timestamp={message.timestamp}
+            onCategoryClick={onCategoryClick}
+            userQuery={message.userQuery}
+          />
+        </motion.div>
+      );
+    }
+
+    // Handle clarification response
+    if (responseType === "clarification" && "message" in message.content) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full"
+        >
+          <div className="inline-block px-5 py-3 rounded-2xl shadow-lg max-w-xs lg:max-w-md backdrop-blur-sm border bg-white/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-100 border-white/50 dark:border-gray-600/50">
+            <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+              {message.content.message}
+            </div>
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {message.timestamp.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
+        </motion.div>
       );
     }
   }
@@ -112,11 +161,19 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   if (!isUser && Array.isArray(message.content) && onCategoryClick) {
     console.log("Rendering CategoryResponse component"); // Debug log
     return (
-      <CategoryResponse
-        categories={message.content}
-        timestamp={message.timestamp}
-        onCategoryClick={onCategoryClick}
-      />
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="w-full"
+      >
+        <CategoryResponse
+          categories={message.content}
+          timestamp={message.timestamp}
+          onCategoryClick={onCategoryClick}
+        />
+      </motion.div>
     );
   }
 
@@ -133,7 +190,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         stiffness: 300,
         damping: 30,
       }}
-      className={`flex items-start space-x-3 ${
+      className={`flex items-start space-x-3 w-full ${
         isUser ? "flex-row-reverse space-x-reverse" : ""
       }`}
     >

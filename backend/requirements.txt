@@ -1,12 +1,34 @@
+# Core web framework and server
 fastapi
 uvicorn[standard]
+
+# OpenAI and LangChain
 openai
 langchain[openai,docarray]
 langgraph
+langchain_community
+
+# Data processing
 pandas
+openpyxl
+
+# Environment and utilities
 python-dotenv
 tiktoken
-faiss-cpu
 pydantic
-langchain_community
-openpyxl
+
+# Vector search
+faiss-cpu
+
+# HuggingFace and ML dependencies
+torch
+transformers
+scikit-learn
+numpy
+
+# Additional ML utilities
+sentence-transformers
+
+# ONNX Runtime for optimized inference
+onnx
+onnxruntime

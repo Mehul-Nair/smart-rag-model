@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from rag.retriever import ExcelRetriever
 from rag.langgraph_agent import build_langgraph_agent
 from typing import Optional
+import time
+import datetime
 
 # Load environment variables
 load_dotenv(".env")
@@ -45,11 +47,41 @@ import json
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
-    user_message = request.message
-    response = langgraph_agent(user_message)
+    start_time = time.time()
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    print(f"Backend response type: {type(response)}")
-    print(f"Backend response: {response}")
+    print(f"[{timestamp}] Received chat request: {request.message}")
+    user_message = request.message
+
+    try:
+        print(f"[{timestamp}] Calling langgraph_agent...")
+        response = langgraph_agent(user_message)
+        print(f"[{timestamp}] langgraph_agent completed successfully")
+    except Exception as e:
+        end_time = time.time()
+        response_time = end_time - start_time
+        print(f"[{timestamp}] Error in langgraph_agent: {e}")
+        print(f"[{timestamp}] Response time: {response_time:.2f} seconds")
+        import traceback
+
+        traceback.print_exc()
+        result = {
+            "response": "Sorry, I encountered an error processing your request.",
+            "type": "text",
+        }
+        print(f"[{timestamp}] Returning error result: {result}")
+        return result
+
+    end_time = time.time()
+    response_time = end_time - start_time
+
+    print(f"[{timestamp}] Backend response type: {type(response)}")
+    print(f"[{timestamp}] Backend response: {response}")
+    print(f"[{timestamp}] Response time: {response_time:.2f} seconds")
+
+    # Ensure response is JSON-serializable
+    if isinstance(response, BaseModel):
+        response = response.dict()
 
     # Check if response is already a dict (product suggestion) or string
     if isinstance(response, dict):
@@ -58,12 +90,27 @@ async def chat_endpoint(request: ChatRequest):
             "product_suggestion",
             "category_not_found",
             "budget_constraint",
+            "clarification",
+            "error",
+            "greeting",  # Added to handle greeting responses
         ]:
-            print(f"Returning {response_type}")
-            return {"response": response, "type": response_type}
+            print(f"[{timestamp}] Returning {response_type}")
+            result = {"response": response, "type": response_type}
+            print(f"[{timestamp}] Returning to frontend: {result}")
+            return result
     elif isinstance(response, list):
-        print("Returning category list")
-        return {"response": response, "type": "category_list"}
+        print(f"[{timestamp}] Returning category list")
+        result = {"response": response, "type": "category_list"}
+        print(f"[{timestamp}] Returning to frontend: {result}")
+        return result
     else:
-        print("Returning text response")
-        return {"response": response, "type": "text"}
+        print(f"[{timestamp}] Returning text response")
+        result = {"response": response, "type": "text"}
+        print(f"[{timestamp}] Returning to frontend: {result}")
+        return result
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
