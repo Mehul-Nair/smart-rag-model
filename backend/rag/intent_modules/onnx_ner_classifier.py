@@ -303,7 +303,11 @@ def get_ner_classifier() -> ONNXNERClassifier:
     """Get or create the global NER classifier instance"""
     global _ner_classifier
     if _ner_classifier is None:
-        _ner_classifier = ONNXNERClassifier()
+        # Get the full path to the model directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        backend_dir = os.path.dirname(os.path.dirname(current_dir))  # Go up two levels
+        model_path = os.path.join(backend_dir, "trained_deberta_ner_model")
+        _ner_classifier = ONNXNERClassifier(model_path)
     return _ner_classifier
 
 

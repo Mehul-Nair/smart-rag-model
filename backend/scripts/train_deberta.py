@@ -52,37 +52,52 @@ class TrainingProgressCallback(TrainerCallback):
         """Called at the beginning of each step"""
         self.current_step = state.global_step
         self.current_epoch = state.epoch
-
-        # Calculate progress percentage
-        progress_percent = (self.current_step / self.total_steps) * 100
-
-        # Log every 10 steps or at milestones
-        if self.current_step % 10 == 0 or self.current_step in [1, 5, 10, 25, 50, 100]:
-            logger.info(
-                f"📈 Step {self.current_step}/{self.total_steps} "
-                f"({progress_percent:.1f}%) - Epoch {self.current_epoch:.2f}"
-            )
+        # Removed verbose step logging - let the progress bar handle it
 
     def on_evaluate(self, args, state, control, metrics=None, **kwargs):
         """Called after evaluation"""
         if metrics:
             eval_loss = metrics.get("eval_loss", "N/A")
             eval_accuracy = metrics.get("eval_accuracy", "N/A")
-            progress_percent = (self.current_step / self.total_steps) * 100
+            current_epoch = int(state.epoch)
+            progress_percent = (current_epoch / args.num_train_epochs) * 100
 
             logger.info(
-                f"🔍 Evaluation at step {self.current_step} ({progress_percent:.1f}%)"
+                f"📊 Epoch {current_epoch} Results ({progress_percent:.1f}% complete):"
             )
-            logger.info(f"   - Loss: {eval_loss:.4f}")
-            logger.info(f"   - Accuracy: {eval_accuracy:.4f}")
+
+            # Handle loss formatting
+            if isinstance(eval_loss, (int, float)):
+                logger.info(f"   - Validation Loss: {eval_loss:.4f}")
+            else:
+                logger.info(f"   - Validation Loss: {eval_loss}")
+
+            # Handle accuracy formatting
+            if isinstance(eval_accuracy, (int, float)):
+                logger.info(f"   - Validation Accuracy: {eval_accuracy:.4f}")
+            else:
+                logger.info(f"   - Validation Accuracy: {eval_accuracy}")
+
+            logger.info("   " + "=" * 50)
 
     def on_epoch_end(self, args, state, control, **kwargs):
         """Called at the end of each epoch"""
         epoch_progress = (self.current_epoch / args.num_train_epochs) * 100
+
+        # Get the latest training loss if available
+        latest_loss = "N/A"
+        if state.log_history:
+            for log in reversed(state.log_history):
+                if "loss" in log:
+                    latest_loss = log["loss"]
+                    break
+
         logger.info(
-            f"🎯 Epoch {self.current_epoch:.0f} completed! "
-            f"({epoch_progress:.1f}% of training)"
+            f"✅ Epoch {self.current_epoch:.0f} completed! ({epoch_progress:.1f}% of training)"
         )
+        if isinstance(latest_loss, (int, float)):
+            logger.info(f"   - Training Loss: {latest_loss:.4f}")
+        logger.info("   " + "=" * 50)
 
     def on_train_end(self, args, state, control, **kwargs):
         """Called at the end of training"""
@@ -177,7 +192,7 @@ class DeBERTaIntentTrainer:
             self.model_name, num_labels=len(self.intent_mapping)
         )
 
-        # Training arguments with enhanced logging
+        # Training arguments with clean progress bar
         training_args = TrainingArguments(
             output_dir=output_dir,
             num_train_epochs=num_epochs,
@@ -186,20 +201,21 @@ class DeBERTaIntentTrainer:
             warmup_steps=500,
             weight_decay=0.01,
             logging_dir=f"{output_dir}/logs",
-            logging_steps=1,  # Log every step for detailed progress
-            evaluation_strategy="steps",  # Evaluate during training
-            eval_steps=50,  # Evaluate every 50 steps
+            logging_steps=100,  # Log every 100 steps instead of every step
+            eval_strategy="epoch",  # Evaluate at end of each epoch
             save_strategy="epoch",
             load_best_model_at_end=True,
             metric_for_best_model="accuracy",
             greater_is_better=True,
             learning_rate=learning_rate,
             save_total_limit=2,
-            # Enhanced logging
+            # Clean logging
             report_to=None,  # Disable wandb/tensorboard for simplicity
-            logging_first_step=True,
+            logging_first_step=False,  # Don't log first step
             dataloader_pin_memory=False,
             remove_unused_columns=False,
+            # Progress bar settings
+            disable_tqdm=False,  # Keep progress bar
         )
 
         # Data collator
@@ -208,13 +224,21 @@ class DeBERTaIntentTrainer:
         # Calculate total steps for progress tracking
         total_steps = len(train_dataset) // batch_size * num_epochs
 
-        # Initialize trainer with custom callback
+        # Custom evaluation function to compute accuracy
+        def compute_metrics(eval_pred):
+            predictions, labels = eval_pred
+            predictions = np.argmax(predictions, axis=1)
+            accuracy = accuracy_score(labels, predictions)
+            return {"eval_accuracy": accuracy}
+
+        # Initialize trainer with custom callback and metrics
         trainer = Trainer(
             model=self.model,
             args=training_args,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             data_collator=data_collator,
+            compute_metrics=compute_metrics,
             callbacks=[TrainingProgressCallback(total_steps)],
         )
 
@@ -344,64 +368,161 @@ class DeBERTaIntentTrainer:
         return results
 
 
+def combine_training_data():
+    """Combine all JSONL files from data/training/intent folder"""
+    training_dir = "data/training/intent"
+    all_data = []
+    seen_entries = set()
+
+    # Check if directory exists
+    if not os.path.exists(training_dir):
+        raise FileNotFoundError(f"Training directory not found: {training_dir}")
+
+    # Check if directory has JSONL files
+    jsonl_files = [f for f in os.listdir(training_dir) if f.endswith(".jsonl")]
+    if not jsonl_files:
+        raise ValueError(f"No JSONL files found in {training_dir}")
+
+    print("📖 Reading training data from JSONL files...")
+
+    for file in jsonl_files:
+        file_path = os.path.join(training_dir, file)
+        print(f"   Reading {file}...")
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                for line_num, line in enumerate(f, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    try:
+                        data = json.loads(line)
+                        # Validate required fields
+                        if "text" not in data or "intent" not in data:
+                            print(
+                                f"   ⚠️  Skipping invalid data in {file} line {line_num}: missing text or intent"
+                            )
+                            continue
+
+                        # Create unique key to avoid duplicates
+                        entry_key = f"{data['text'].lower().strip()}_{data['intent']}"
+
+                        if entry_key not in seen_entries:
+                            all_data.append(
+                                {"text": data["text"].strip(), "intent": data["intent"]}
+                            )
+                            seen_entries.add(entry_key)
+                    except json.JSONDecodeError as e:
+                        print(f"   ⚠️  Skipping invalid JSON in {file} line {line_num}")
+                        continue
+        except Exception as e:
+            print(f"   ❌ Error reading {file}: {e}")
+            continue
+
+    # Check if we have any data
+    if not all_data:
+        raise ValueError("No valid training examples found in JSONL files")
+
+    # Save combined data
+    output_file = "data/training/combined_intent_data.csv"
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
+    df = pd.DataFrame(all_data)
+    df.to_csv(output_file, index=False)
+
+    print(f"✅ Combined {len(df)} unique training examples")
+    print(f"📊 Intent distribution:")
+    print(df["intent"].value_counts())
+    print(f"💾 Saved to: {output_file}")
+
+    return output_file
+
+
 def main():
+    """Main training function - automatically reads from data/training/intent"""
+
+    import argparse
+
+    # Parse only epochs argument
     parser = argparse.ArgumentParser(
         description="Train DeBERTa for intent classification"
     )
     parser.add_argument(
-        "--data_path", type=str, required=True, help="Path to training data"
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="./trained_deberta_model",
-        help="Output directory",
-    )
-    parser.add_argument(
         "--epochs", type=int, default=3, help="Number of training epochs"
     )
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
-    parser.add_argument(
-        "--learning_rate", type=float, default=2e-5, help="Learning rate"
-    )
-    parser.add_argument("--test_size", type=float, default=0.2, help="Test set size")
-
     args = parser.parse_args()
 
-    # Initialize trainer
-    trainer = DeBERTaIntentTrainer()
+    try:
+        print("🔄 DeBERTa Intent Classification Training")
+        print("=" * 50)
+        print(f"📊 Training for {args.epochs} epochs")
 
-    # Load data
-    texts, labels = trainer.load_data(args.data_path)
+        # Step 1: Combine training data
+        print("\n1️⃣ Combining training data...")
+        data_file = combine_training_data()
 
-    # Split data
-    train_texts, test_texts, train_labels, test_labels = train_test_split(
-        texts, labels, test_size=args.test_size, random_state=42, stratify=labels
-    )
+        # Step 2: Initialize trainer
+        print("\n2️⃣ Initializing trainer...")
+        trainer = DeBERTaIntentTrainer()
 
-    # Prepare datasets
-    train_dataset = trainer.prepare_dataset(train_texts, train_labels)
-    test_dataset = trainer.prepare_dataset(test_texts, test_labels)
+        # Step 3: Load and split data
+        print("\n3️⃣ Loading and splitting data...")
+        texts, labels = trainer.load_data(data_file)
 
-    # Train model
-    trainer.train_model(
-        train_dataset=train_dataset,
-        eval_dataset=test_dataset,
-        output_dir=args.output_dir,
-        num_epochs=args.epochs,
-        batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
-    )
+        # Validate we have enough data for splitting
+        if len(texts) < 10:
+            raise ValueError(
+                f"Not enough training examples: {len(texts)}. Need at least 10."
+            )
 
-    # Evaluate model
-    results = trainer.evaluate_model(test_texts, test_labels)
+        train_texts, test_texts, train_labels, test_labels = train_test_split(
+            texts, labels, test_size=0.2, random_state=42, stratify=labels
+        )
 
-    # Save results
-    results_path = os.path.join(args.output_dir, "training_results.json")
-    with open(results_path, "w") as f:
-        json.dump(results, f, indent=2)
+        # Step 4: Prepare datasets
+        print("\n4️⃣ Preparing datasets...")
+        train_dataset = trainer.prepare_dataset(train_texts, train_labels)
+        test_dataset = trainer.prepare_dataset(test_texts, test_labels)
 
-    logger.info(f"Training results saved to {results_path}")
+        # Step 5: Train model
+        print("\n5️⃣ Training model...")
+        trainer.train_model(
+            train_dataset=train_dataset,
+            eval_dataset=test_dataset,
+            output_dir="./trained_deberta_model",
+            num_epochs=args.epochs,
+            batch_size=8,
+            learning_rate=2e-5,
+        )
+
+        # Step 6: Evaluate model
+        print("\n6️⃣ Evaluating model...")
+        results = trainer.evaluate_model(test_texts, test_labels)
+
+        # Step 7: Save results
+        results_path = os.path.join("./trained_deberta_model", "training_results.json")
+        with open(results_path, "w") as f:
+            json.dump(results, f, indent=2)
+
+        print(f"\n✅ Training completed!")
+        print(f"📈 Final accuracy: {results['accuracy']:.2%}")
+        print(f"💾 Results saved to: {results_path}")
+
+    except FileNotFoundError as e:
+        print(f"❌ File error: {e}")
+        print("💡 Make sure the data/training/intent directory exists with JSONL files")
+        return 1
+    except ValueError as e:
+        print(f"❌ Data error: {e}")
+        print("💡 Check your training data format and content")
+        return 1
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        print("💡 Check the error details above")
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":

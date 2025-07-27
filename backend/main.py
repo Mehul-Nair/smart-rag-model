@@ -10,7 +10,7 @@ import time
 import datetime
 
 # Load environment variables
-load_dotenv(".env")
+load_dotenv(".env", override=True)  # override=True ensures .env takes precedence
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -55,8 +55,22 @@ async def chat_endpoint(request: ChatRequest):
 
     try:
         print(f"[{timestamp}] Calling langgraph_agent...")
-        response = langgraph_agent(user_message)
+        session_id = request.session_id or "default"
+        response = langgraph_agent(user_message, session_id)
         print(f"[{timestamp}] langgraph_agent completed successfully")
+
+        # Debug: Print session state after processing
+        from rag.langgraph_agent import GLOBAL_SESSION_STATES
+
+        if session_id in GLOBAL_SESSION_STATES:
+            session_state = GLOBAL_SESSION_STATES[session_id]
+            print(
+                f"[{timestamp}] Session {session_id} slots: {session_state.get('slots', {})}"
+            )
+            print(
+                f"[{timestamp}] Session {session_id} history length: {len(session_state.get('conversation_history', []))}"
+            )
+
     except Exception as e:
         end_time = time.time()
         response_time = end_time - start_time
@@ -93,6 +107,7 @@ async def chat_endpoint(request: ChatRequest):
             "clarification",
             "error",
             "greeting",  # Added to handle greeting responses
+            "category_list",  # Added to handle category list responses
         ]:
             print(f"[{timestamp}] Returning {response_type}")
             result = {"response": response, "type": response_type}
@@ -108,6 +123,24 @@ async def chat_endpoint(request: ChatRequest):
         result = {"response": response, "type": "text"}
         print(f"[{timestamp}] Returning to frontend: {result}")
         return result
+
+
+@app.get("/debug/session/{session_id}")
+async def debug_session(session_id: str):
+    """Debug endpoint to check session state"""
+    from rag.langgraph_agent import GLOBAL_SESSION_STATES
+
+    if session_id in GLOBAL_SESSION_STATES:
+        session_state = GLOBAL_SESSION_STATES[session_id]
+        return {
+            "session_id": session_id,
+            "slots": session_state.get("slots", {}),
+            "conversation_history": session_state.get("conversation_history", []),
+            "last_prompted_slot": session_state.get("last_prompted_slot"),
+            "pending_intent": session_state.get("pending_intent"),
+        }
+    else:
+        return {"error": "Session not found"}
 
 
 if __name__ == "__main__":

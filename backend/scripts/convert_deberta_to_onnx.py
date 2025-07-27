@@ -266,7 +266,7 @@ if __name__ == "__main__":
     print(f"Entities: {{entities}}")
 '''
 
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(class_code)
 
         logger.info(f"✅ ONNX inference class saved to {output_path}")

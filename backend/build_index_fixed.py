@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Fixed FAISS Index Builder for Single Excel File with Multiple Categories
+Fixed FAISS Index Builder
+
+This script builds a FAISS index from Excel files with improved category handling
+and better error handling for the smart AI agent.
 """
 
 import os
@@ -11,11 +14,10 @@ from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.docstore.document import Document
 from dotenv import load_dotenv
-from pydantic import SecretStr
 import json
 
 # Load environment variables from .env file
-load_dotenv(".env")
+load_dotenv(".env", override=True)  # override=True ensures .env takes precedence
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Verify API key is loaded
@@ -31,11 +33,13 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 INDEX_DIR = os.path.join(os.path.dirname(__file__), "data_source", "faiss_index")
 os.makedirs(INDEX_DIR, exist_ok=True)
 
-# Category normalization dictionary
+# Enhanced category normalization dictionary
 CATEGORY_MAP = {
-    "furnishing": "furnishing",
+    "bedside-table": "bedside tables",
+    "handmade_rugs": "handmade rugs",
+    "handmade-rugs": "handmade rugs",
+    "fabrics": "fabrics",
     "Furnishing": "furnishing",
-    "lights": "lights",
     "Lights": "lights",
     "Bath": "bath",
     "Rugs": "rugs",
@@ -43,140 +47,125 @@ CATEGORY_MAP = {
 }
 
 
-def normalize_category(category):
-    """Normalize category names"""
-    if pd.isna(category):
-        return "unknown"
-    category_str = str(category).strip()
-    return CATEGORY_MAP.get(category_str, category_str.lower())
+def get_all_excel_files(data_dir):
+    """Get all Excel files, excluding temporary lock files"""
+    all_files = glob(os.path.join(data_dir, "**", "*.xlsx"), recursive=True)
+    # Filter out temporary Excel lock files (files starting with ~$)
+    valid_files = [f for f in all_files if not os.path.basename(f).startswith("~$")]
+    return valid_files
 
 
 def build_faiss_index():
-    """Build FAISS index from the single Excel file with multiple categories"""
+    """Build FAISS index with improved category handling"""
     print("🔧 Building FAISS index with fixed category handling...")
 
     all_docs = []
     category_summary = {}
 
-    # Process the single Excel file
+    # Load data from Excel file
     excel_file = os.path.join(DATA_DIR, "BH_PD.xlsx")
-
-    if not os.path.exists(excel_file):
-        print(f"❌ Excel file not found: {excel_file}")
-        return
-
     print(f"📂 Loading data from: {excel_file}")
 
-    # Read the Excel file
-    df = pd.read_excel(excel_file)
-    print(f"✅ Loaded {len(df)} rows from Excel file")
-
-    # Check if main_category column exists
-    if "main_category" not in df.columns:
-        print(f"❌ No main_category column found in {excel_file}")
-        print("Available columns:", df.columns.tolist())
+    try:
+        df = pd.read_excel(excel_file)
+        print(f"✅ Loaded {len(df)} rows from Excel file")
+    except Exception as e:
+        print(f"❌ Error loading Excel file: {e}")
         return
 
-    # Get unique categories and normalize them
-    unique_categories = df["main_category"].unique()
-    print(f"🔍 Found categories: {unique_categories}")
+    # Analyze categories in the data
+    if "main_category" in df.columns:
+        unique_categories = df["main_category"].unique()
+        print(f"🔍 Found categories: {unique_categories}")
 
-    # Process each category
-    for category in unique_categories:
-        if pd.isna(category):
-            continue
+        # Process each category
+        for category in unique_categories:
+            if pd.isna(category):
+                continue
 
-        normalized_category = normalize_category(category)
-        category_df = df[df["main_category"] == category]
+            # Normalize category name
+            normalized_category = CATEGORY_MAP.get(str(category), str(category).lower())
 
-        print(
-            f"📊 Processing category '{category}' -> '{normalized_category}': {len(category_df)} products"
-        )
+            # Filter data for this category
+            category_df = df[df["main_category"] == category].copy()
 
-        # Clean and convert mrp column for price range
-        if "mrp" in category_df.columns:
-            category_df["mrp_clean"] = pd.to_numeric(
-                category_df["mrp"].astype(str).str.replace(",", ""), errors="coerce"
+            print(
+                f"📊 Processing category '{category}' -> '{normalized_category}': {len(category_df)} products"
             )
-            min_price = (
-                float(category_df["mrp_clean"].min())
-                if not category_df["mrp_clean"].isnull().all()
-                else 0
-            )
-            max_price = (
-                float(category_df["mrp_clean"].max())
-                if not category_df["mrp_clean"].isnull().all()
-                else 0
-            )
-        else:
-            min_price = 0
-            max_price = 0
 
-        # Store category summary
-        category_summary[normalized_category] = {
-            "original_category": category,
-            "file": "BH_PD.xlsx",
-            "count": len(category_df),
-            "price_range": {
-                "min": min_price,
-                "max": max_price,
-            },
-        }
+            # Clean and convert mrp column for price range
+            if "mrp" in category_df.columns:
+                category_df["mrp_clean"] = pd.to_numeric(
+                    category_df["mrp"].astype(str).str.replace(",", ""), errors="coerce"
+                )
+                min_price = (
+                    float(category_df["mrp_clean"].min())
+                    if not category_df["mrp_clean"].isnull().all()
+                    else 0
+                )
+                max_price = (
+                    float(category_df["mrp_clean"].max())
+                    if not category_df["mrp_clean"].isnull().all()
+                    else 0
+                )
+            else:
+                min_price = 0
+                max_price = 0
 
-        # Create documents for this category
-        for i, row in category_df.iterrows():
-            # Create document content from relevant fields
-            content_parts = []
-
-            if "title" in row and pd.notna(row["title"]):
-                content_parts.append(f"Title: {row['title']}")
-            if "pdp_header" in row and pd.notna(row["pdp_header"]):
-                content_parts.append(f"Description: {row['pdp_header']}")
-            if "mrp" in row and pd.notna(row["mrp"]):
-                content_parts.append(f"Price: {row['mrp']}")
-            if "brand_name" in row and pd.notna(row["brand_name"]):
-                content_parts.append(f"Brand: {row['brand_name']}")
-            if "colour" in row and pd.notna(row["colour"]):
-                content_parts.append(f"Color: {row['colour']}")
-            if "size" in row and pd.notna(row["size"]):
-                content_parts.append(f"Size: {row['size']}")
-            if "primary_material" in row and pd.notna(row["primary_material"]):
-                content_parts.append(f"Material: {row['primary_material']}")
-            if "main_category" in row and pd.notna(row["main_category"]):
-                content_parts.append(f"Main Category: {row['main_category']}")
-            if "sub_category" in row and pd.notna(row["sub_category"]):
-                content_parts.append(f"Sub Category: {row['sub_category']}")
-
-            doc_content = " | ".join(content_parts)
-
-            doc = Document(
-                page_content=doc_content,
-                metadata={
-                    "row": i,
-                    "file": excel_file,
-                    "category": normalized_category,
-                    "original_category": str(row.get("main_category", "")),
-                    "sub_category": str(row.get("sub_category", "")),
-                    "filename": "BH_PD.xlsx",
-                    "title": str(row.get("title", "")),
-                    "price": str(row.get("mrp", "")),
-                    "brand": str(row.get("brand_name", "")),
-                    "color": str(row.get("colour", "")),
-                    "material": str(row.get("primary_material", "")),
-                    "url": str(row.get("url", "")),
+            # Store category summary
+            category_summary[normalized_category] = {
+                "file": os.path.basename(excel_file),
+                "count": len(category_df),
+                "price_range": {
+                    "min": min_price,
+                    "max": max_price,
                 },
-            )
-            all_docs.append(doc)
+            }
+
+            # Create documents for this category
+            for i, row in category_df.iterrows():
+                # Create document content from relevant fields
+                content_parts = []
+                if "title" in row and pd.notna(row["title"]):
+                    content_parts.append(f"Title: {row['title']}")
+                if "pdp_header" in row and pd.notna(row["pdp_header"]):
+                    content_parts.append(f"Description: {row['pdp_header']}")
+                if "mrp" in row and pd.notna(row["mrp"]):
+                    content_parts.append(f"Price: {row['mrp']}")
+                if "main_category" in row and pd.notna(row["main_category"]):
+                    content_parts.append(f"Main Category: {row['main_category']}")
+                if "sub_category" in row and pd.notna(row["sub_category"]):
+                    content_parts.append(f"Sub Category: {row['sub_category']}")
+
+                doc_content = " | ".join(content_parts)
+
+                doc = Document(
+                    page_content=doc_content,
+                    metadata={
+                        "row": i,
+                        "file": excel_file,
+                        "category": normalized_category,
+                        "main_category": str(row.get("main_category", "")),
+                        "sub_category": str(row.get("sub_category", "")),
+                        "filename": os.path.basename(excel_file),
+                        "title": str(row.get("title", "")),
+                        "price": str(row.get("mrp", "")),
+                        "url": str(row.get("url", "")),
+                    },
+                )
+                all_docs.append(doc)
+    else:
+        print(f"❌ No main_category column found in {excel_file}")
+        return
 
     print(f"📚 Total documents created: {len(all_docs)}")
 
-    # Show unique categories found
-    unique_categories_final = set()
+    # Show final unique categories
+    unique_categories = set()
     for doc in all_docs:
         if "category" in doc.metadata:
-            unique_categories_final.add(doc.metadata["category"])
-
-    print(f"🎯 Final unique categories: {sorted(unique_categories_final)}")
+            unique_categories.add(doc.metadata["category"])
+    print(f"🎯 Final unique categories: {sorted(list(unique_categories))}")
 
     # Save category summary for quick access
     category_summary_path = os.path.join(INDEX_DIR, "category_summary.json")
@@ -195,50 +184,18 @@ def build_faiss_index():
         )
 
     print("🔍 Creating embeddings...")
-    try:
-        # Use the newer OpenAI embeddings approach
-        from openai import OpenAI
-
-        client = OpenAI(api_key=OPENAI_API_KEY)
-
-        # Create embeddings using the client directly
-        embeddings = OpenAIEmbeddings(
-            openai_api_key=OPENAI_API_KEY, model="text-embedding-ada-002"
-        )
-        vectorstore = FAISS.from_documents(split_docs, embeddings)
-        vectorstore.save_local(INDEX_DIR)
-        print(f"✅ FAISS index saved to {INDEX_DIR}")
-    except Exception as e:
-        print(f"❌ Error creating embeddings: {e}")
-        print("Trying alternative approach with different parameters...")
-        try:
-            # Alternative approach with minimal parameters
-            embeddings = OpenAIEmbeddings(
-                openai_api_key=OPENAI_API_KEY,
-                model="text-embedding-ada-002",
-                chunk_size=1000,
-            )
-            vectorstore = FAISS.from_documents(split_docs, embeddings)
-            vectorstore.save_local(INDEX_DIR)
-            print(f"✅ FAISS index saved to {INDEX_DIR}")
-        except Exception as e2:
-            print(f"❌ Second attempt failed: {e2}")
-            print("Saving documents without embeddings for now...")
-            # Save the processed documents for later embedding
-            import pickle
-
-            docs_path = os.path.join(INDEX_DIR, "processed_docs.pkl")
-            with open(docs_path, "wb") as f:
-                pickle.dump(split_docs, f)
-            print(f"✅ Processed documents saved to {docs_path}")
-            print("You can create embeddings later when the issue is resolved.")
+    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+    vectorstore = FAISS.from_documents(split_docs, embeddings)
+    vectorstore.save_local(INDEX_DIR)
+    print(f"✅ FAISS index saved to {INDEX_DIR}")
 
     # Print final summary
     print("\n🎉 Indexing completed successfully!")
     print(f"📊 Categories indexed: {len(category_summary)}")
     for category, info in category_summary.items():
+        price_range = info["price_range"]
         print(
-            f"  - {category}: {info['count']} products (₹{info['price_range']['min']:.0f} - ₹{info['price_range']['max']:.0f})"
+            f"  - {category}: {info['count']} products (₹{price_range['min']} - ₹{price_range['max']})"
         )
 
 

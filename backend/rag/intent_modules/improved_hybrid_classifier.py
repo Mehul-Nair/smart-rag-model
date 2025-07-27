@@ -259,6 +259,60 @@ class ImprovedHybridIntentClassifier(BaseIntentClassifier):
                 result.intent = IntentType.CATEGORY_LIST
                 result.confidence = 0.8
                 result.reasoning += " (corrected by intent-specific rules)"
+            elif any(
+                keyword in user_lower
+                for keyword in [
+                    "who is",
+                    "what is",
+                    "when was",
+                    "where is",
+                    "how old is",
+                ]
+            ):
+                result.intent = IntentType.INVALID
+                result.confidence = 0.9
+                result.reasoning += (
+                    " (corrected by intent-specific rules - out of domain question)"
+                )
+
+        # Override any intent for clear out-of-domain questions
+        out_of_domain_keywords = [
+            "who is",
+            "what is",
+            "when was",
+            "where is",
+            "how old is",
+            "birthday of",
+            "capital of",
+            "population of",
+            "stock price of",
+            "weather in",
+            "current time",
+            "what time",
+            "what date",
+            "today is",
+            "narendra modi",
+            "modi",
+            "president",
+            "prime minister",
+            "minister",
+            "celebrity",
+            "actor",
+            "actress",
+            "singer",
+            "artist",
+            "writer",
+            "author",
+            "scientist",
+            "doctor",
+            "teacher",
+            "student",
+        ]
+
+        if any(keyword in user_lower for keyword in out_of_domain_keywords):
+            result.intent = IntentType.INVALID
+            result.confidence = 0.95
+            result.reasoning += " (overridden by out-of-domain detection)"
 
         return result
 

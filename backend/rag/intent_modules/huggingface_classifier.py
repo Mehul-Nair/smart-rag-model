@@ -38,15 +38,15 @@ class HuggingFaceIntentClassifier(BaseIntentClassifier):
         self.model = None
         # Updated intent mapping to match the trained model
         self.intent_mapping = {
-            0: "GREETING",
-            1: "HELP",
-            2: "CATEGORY_LIST",
-            3: "PRODUCT_SEARCH",
-            4: "BUDGET_QUERY",
-            5: "PRODUCT_DETAIL",
-            6: "WARRANTY_QUERY",
-            7: "INVALID",
-            8: "CLARIFY",
+            0: "BUDGET_QUERY",
+            1: "CATEGORY_LIST",
+            2: "CLARIFY",
+            3: "GREETING",
+            4: "HELP",
+            5: "INVALID",
+            6: "PRODUCT_DETAIL",
+            7: "PRODUCT_SEARCH",
+            8: "WARRANTY_QUERY",
         }
         self.reverse_mapping = {v: k for k, v in self.intent_mapping.items()}
         self.performance_stats = {

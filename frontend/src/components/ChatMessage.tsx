@@ -32,6 +32,12 @@ interface BudgetConstraintData {
   message: string;
 }
 
+interface CategoryListData {
+  type: string;
+  categories: string[];
+  message: string;
+}
+
 interface Message {
   id: string;
   content:
@@ -39,6 +45,7 @@ interface Message {
     | ProductResponseData
     | CategoryNotFoundData
     | BudgetConstraintData
+    | CategoryListData
     | string[];
   sender: "user" | "ai";
   timestamp: Date;

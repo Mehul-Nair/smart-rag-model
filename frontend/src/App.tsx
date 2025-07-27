@@ -33,6 +33,12 @@ interface BudgetConstraintData {
   message: string;
 }
 
+interface CategoryListData {
+  type: string;
+  categories: string[];
+  message: string;
+}
+
 interface Message {
   id: string;
   content:
@@ -40,6 +46,7 @@ interface Message {
     | ProductResponseData
     | CategoryNotFoundData
     | BudgetConstraintData
+    | CategoryListData
     | string[];
   sender: "user" | "ai";
   timestamp: Date;
@@ -109,6 +116,7 @@ function App() {
         | ProductResponseData
         | CategoryNotFoundData
         | BudgetConstraintData
+        | CategoryListData
         | string[];
 
       console.log("Response type:", data.type);
@@ -134,10 +142,11 @@ function App() {
         parsedContent = data.response as BudgetConstraintData;
       } else if (
         data.type === "category_list" &&
-        Array.isArray(data.response)
+        typeof data.response === "object" &&
+        data.response.categories
       ) {
         console.log("Processing category_list");
-        parsedContent = data.response as string[];
+        parsedContent = data.response.categories as string[];
       } else if (
         data.type === "clarification" &&
         typeof data.response === "object" &&
