@@ -23,7 +23,8 @@ from .intent_modules import (
     IntentType,
     ClassificationResult,
 )
-from .intent_modules.onnx_ner_classifier import extract_slots_from_text
+
+# Dynamic NER is imported locally where needed for better performance
 
 
 # --- Advanced Product Detail Handler ---
@@ -124,30 +125,10 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 trained_model_path = os.path.join(current_dir, "..", "trained_deberta_model")
 
 intent_classifier = IntentClassifierFactory.create(
-    "improved_hybrid",
+    "huggingface",
     {
-        "confidence_threshold": 0.3,
-        "primary_classifier": "huggingface",
-        "fallback_classifier": "rule_based",
-        "enable_intent_specific_rules": True,
-        "implementation_configs": {
-            "huggingface": {
-                "model_path": trained_model_path,
-                "device": "cpu",
-                "intent_mapping": {
-                    "BUDGET_QUERY": 0,
-                    "CATEGORY_LIST": 1,
-                    "CLARIFY": 2,
-                    "GREETING": 3,
-                    "HELP": 4,
-                    "INVALID": 5,
-                    "PRODUCT_DETAIL": 6,
-                    "PRODUCT_SEARCH": 7,
-                    "WARRANTY_QUERY": 8,
-                },
-            },
-            "rule_based": {"similarity_threshold": 0.3},
-        },
+        "model_path": trained_model_path,
+        "device": "cpu",
     },
 )
 
@@ -203,17 +184,6 @@ def switch_to_improved_hybrid():
                 "huggingface": {
                     "model_path": trained_model_path,
                     "device": "cpu",
-                    "intent_mapping": {
-                        "BUDGET_QUERY": 0,
-                        "CATEGORY_LIST": 1,
-                        "CLARIFY": 2,
-                        "GREETING": 3,
-                        "HELP": 4,
-                        "INVALID": 5,
-                        "PRODUCT_DETAIL": 6,
-                        "PRODUCT_SEARCH": 7,
-                        "WARRANTY_QUERY": 8,
-                    },
                 },
                 "rule_based": {"similarity_threshold": 0.3},
             },
@@ -342,7 +312,9 @@ SLOT_TEMPLATES = {
     IntentType.PRODUCT_SEARCH: [
         "product_type",  # Essential - what they want to buy
     ],
-    IntentType.PRODUCT_DETAIL: ["product_type", "brand"],
+    IntentType.PRODUCT_DETAIL: [
+        "product_type"
+    ],  # Only require product_type, brand is optional
     IntentType.BUDGET_QUERY: [
         "product_type",  # Essential - what they want to buy
         "budget",  # Essential - their budget constraint
@@ -363,6 +335,104 @@ SLOT_TEMPLATES = {
 
 def get_required_slots_for_intent(intent):
     return SLOT_TEMPLATES.get(intent, [])
+
+
+def reconstruct_product_name_from_entities(extracted_slots, original_text):
+    """Reconstruct a product name from extracted entities"""
+    # Priority order for product name reconstruction
+    if "PRODUCT_NAME" in extracted_slots:
+        return extracted_slots["PRODUCT_NAME"]
+
+    # Special handling for known product name patterns
+    # Look for patterns like "City Lights", "Lighting Up Lisbon", "Lights Out Gold"
+    known_product_patterns = [
+        "city lights",
+        "lighting up lisbon",
+        "lights out gold",
+        "drop dead gorgeous",
+        "time to shine",
+        "keeper of my heart",
+        "bolt",
+        "positive energy",
+        "purity",
+        "skyfall",
+        "captured",
+    ]
+
+    # Known brand names that should not be treated as product names
+    known_brands = [
+        "pure royale",
+        "white teak",
+        "asian paints",
+        "bathsense",
+        "ador",
+        "royale",
+    ]
+
+    # Check if the original text contains any known product name patterns
+    original_lower = original_text.lower()
+    for pattern in known_product_patterns:
+        if pattern in original_lower:
+            # Extract the full product name from the original text
+            # Look for the pattern and extend to get the full product name
+            start_idx = original_lower.find(pattern)
+            if start_idx != -1:
+                # Try to extract the full product name (up to the next punctuation or end)
+                end_idx = original_text.find("(", start_idx)
+                if end_idx == -1:
+                    end_idx = original_text.find(")", start_idx)
+                if end_idx == -1:
+                    end_idx = len(original_text)
+
+                product_name = original_text[start_idx:end_idx].strip()
+                return product_name
+
+    # Check if the text contains a known brand (should be treated as BRAND, not PRODUCT_NAME)
+    for brand in known_brands:
+        if brand in original_lower:
+            # If it's a known brand, don't treat it as a product name
+            # Let the NER model handle it as BRAND
+            pass
+
+    # Combine multiple product types
+    if "PRODUCT_TYPE" in extracted_slots:
+        product_types = extracted_slots["PRODUCT_TYPE"].split(", ")
+        if len(product_types) > 1:
+            return " ".join(product_types)
+        else:
+            base_product = product_types[0]
+
+    # Combine material + product type
+    if "MATERIAL" in extracted_slots and "PRODUCT_TYPE" in extracted_slots:
+        material = extracted_slots["MATERIAL"]
+        product_type = extracted_slots["PRODUCT_TYPE"].split(", ")[
+            0
+        ]  # Take first if multiple
+        return f"{material} {product_type}"
+
+    # Combine color + product type (if color is not a location word)
+    if "COLOR" in extracted_slots and "PRODUCT_TYPE" in extracted_slots:
+        color = extracted_slots["COLOR"]
+        # Filter out location words that might be misclassified as colors
+        location_words = [
+            "city",
+            "town",
+            "village",
+            "country",
+            "state",
+            "place",
+            "location",
+        ]
+        if color.lower() not in location_words:
+            product_type = extracted_slots["PRODUCT_TYPE"].split(", ")[0]
+            return f"{color} {product_type}"
+
+    # Fallback to product type only
+    if "PRODUCT_TYPE" in extracted_slots:
+        return extracted_slots["PRODUCT_TYPE"]
+
+    # Last resort: return original text
+    return original_text
 
 
 # --- Enhanced Budget Extraction ---
@@ -549,12 +619,95 @@ def classify_node(state: AgentState) -> AgentState:
             }
             return state
 
-    # Slot-filling: If waiting for a slot, treat input as slot value
+    # Slot-filling: If waiting for a slot, try NER first, then fall back to full message
     if state.get("last_prompted_slot"):
         slot = state["last_prompted_slot"]
-        value = user_message.strip()
         # Normalize slot name to match required_slots
         slot = slot.replace(" ", "_").lower()
+
+        # First, try to extract the requested entity type using NER
+        try:
+            # Use dynamic NER extraction
+            from rag.intent_modules.dynamic_ner_classifier import (
+                extract_slots_from_text_dynamic,
+            )
+
+            extracted_slots = extract_slots_from_text_dynamic(user_message)
+            print(
+                f"[{timestamp}] Dynamic NER extraction for slot '{slot}': {extracted_slots}"
+            )
+
+            # Map slot names to entity types
+            slot_to_entity_mapping = {
+                "product_type": "PRODUCT_TYPE",
+                "room_type": "ROOM",
+                "brand": "BRAND",
+                "color": "COLOR",
+                "material": "MATERIAL",
+                "size": "SIZE",
+                "style": "STYLE",
+                "budget": "BUDGET",
+                "product_name": "PRODUCT_NAME",
+            }
+
+            target_entity = slot_to_entity_mapping.get(slot)
+
+            # For product_type slot, prioritize PRODUCT_NAME if available
+            if slot == "product_type" and "PRODUCT_NAME" in extracted_slots:
+                value = extracted_slots["PRODUCT_NAME"]
+                print(
+                    f"[{timestamp}] ✅ Using PRODUCT_NAME '{value}' for product_type slot"
+                )
+            elif slot == "product_type" and (
+                "PRODUCT_TYPE" in extracted_slots
+                or "PRODUCT_NAME" in extracted_slots
+                or "MATERIAL" in extracted_slots
+            ):
+                # Try to reconstruct a product name from multiple entities
+                value = reconstruct_product_name_from_entities(
+                    extracted_slots, user_message
+                )
+                print(f"[{timestamp}] ✅ Reconstructed product name: '{value}'")
+            elif slot == "brand" and "BRAND" in extracted_slots:
+                # Handle brand slot specifically
+                value = extracted_slots["BRAND"]
+                print(f"[{timestamp}] ✅ Using BRAND '{value}' for brand slot")
+            elif target_entity and target_entity in extracted_slots:
+                # NER found the requested entity type
+                value = extracted_slots[target_entity]
+
+                # Post-process to filter out obviously incorrect classifications
+                if target_entity == "COLOR":
+                    # Filter out non-color words
+                    non_color_words = [
+                        "city",
+                        "town",
+                        "village",
+                        "country",
+                        "state",
+                        "place",
+                        "location",
+                    ]
+                    if value.lower() in non_color_words:
+                        print(
+                            f"[{timestamp}] ⚠️ Filtered out non-color word '{value}' from COLOR slot"
+                        )
+                        value = user_message.strip()
+                    else:
+                        print(f"[{timestamp}] ✅ NER found {slot} = '{value}'")
+                else:
+                    print(f"[{timestamp}] ✅ NER found {slot} = '{value}'")
+            else:
+                # NER didn't find the requested entity, use the full message
+                value = user_message.strip()
+                print(
+                    f"[{timestamp}] ⚠️ NER didn't find {slot}, using full message: '{value}'"
+                )
+
+        except Exception as e:
+            print(f"[{timestamp}] ❌ NER extraction failed: {e}, using full message")
+            value = user_message.strip()
+
         state.setdefault("slots", {})[slot] = value
         print(f"[{timestamp}] Filled slot: {slot} = {value}")
         print(f"[{timestamp}] Current slots: {state['slots']}")
@@ -691,8 +844,12 @@ def classify_node(state: AgentState) -> AgentState:
         # IntentType.BUDGET,  # Legacy - use BUDGET_QUERY
     ]:
         try:
-            # First, try NER-based extraction
-            extracted_slots = extract_slots_from_text(user_message)
+            # First, try Dynamic NER-based extraction
+            from rag.intent_modules.dynamic_ner_classifier import (
+                extract_slots_from_text_dynamic,
+            )
+
+            extracted_slots = extract_slots_from_text_dynamic(user_message)
             if extracted_slots:
                 print(f"[{timestamp}] NER extracted slots: {extracted_slots}")
                 # Map NER entity types to slot names

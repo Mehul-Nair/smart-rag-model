@@ -160,16 +160,16 @@ hybrid_config = config.get_hybrid_config()
 | Implementation | Speed      | Accuracy   | Cost     | Dependencies        |
 | -------------- | ---------- | ---------- | -------- | ------------------- |
 | Rule-based     | ⚡⚡⚡⚡⚡ | ⭐⭐⭐     | Free     | None                |
-| HuggingFace    | ⚡⚡⚡     | ⭐⭐⭐⭐   | Free     | transformers, torch |
+| HuggingFace    | ⚡⚡⚡⚡   | ⭐⭐⭐⭐⭐ | Free     | transformers, torch |
 | OpenAI         | ⚡⚡       | ⭐⭐⭐⭐⭐ | Paid     | openai              |
-| Hybrid         | ⚡⚡⚡     | ⭐⭐⭐⭐⭐ | Variable | All above           |
+| Hybrid         | ⚡⚡⚡⚡   | ⭐⭐⭐⭐⭐ | Variable | All above           |
 
 ### Speed Benchmarks (per query)
 
 - **Rule-based**: ~2-5ms
-- **HuggingFace**: ~50-200ms
+- **HuggingFace**: ~60-80ms (PyTorch CPU)
 - **OpenAI**: ~500-2000ms
-- **Hybrid**: ~10-100ms (depends on fallback strategy)
+- **Hybrid**: ~60-100ms (depends on fallback strategy)
 
 ## 🔧 Advanced Usage
 

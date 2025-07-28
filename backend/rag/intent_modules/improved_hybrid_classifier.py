@@ -101,6 +101,7 @@ class ImprovedHybridIntentClassifier(BaseIntentClassifier):
             )
             if self.primary_classifier_type == "huggingface":
                 self.primary_classifier = HuggingFaceIntentClassifier(primary_config)
+
             else:
                 from .factory import IntentClassifierFactory
 
