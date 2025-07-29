@@ -269,74 +269,9 @@ class ImprovedHybridIntentClassifier(BaseIntentClassifier):
             if any(keyword in user_lower for keyword in clarify_keywords):
                 result.confidence = min(1.0, result.confidence + 0.1)
 
-        # Penalize low confidence for clear patterns
-        if result.confidence < 0.3:
-            # If we have clear patterns but low confidence, it might be a model issue
-            if any(keyword in user_lower for keyword in ["hello", "hi", "hey"]):
-                result.intent = IntentType.GREETING
-                result.confidence = 0.8
-                result.reasoning += " (corrected by intent-specific rules)"
-            elif any(
-                keyword in user_lower
-                for keyword in ["category", "categories", "what do you have"]
-            ):
-                result.intent = IntentType.CATEGORY_LIST
-                result.confidence = 0.8
-                result.reasoning += " (corrected by intent-specific rules)"
-            elif any(
-                keyword in user_lower
-                for keyword in [
-                    "who is",
-                    "what is",
-                    "when was",
-                    "where is",
-                    "how old is",
-                ]
-            ):
-                result.intent = IntentType.INVALID
-                result.confidence = 0.9
-                result.reasoning += (
-                    " (corrected by intent-specific rules - out of domain question)"
-                )
-
-        # Override any intent for clear out-of-domain questions
-        out_of_domain_keywords = [
-            "who is",
-            "what is",
-            "when was",
-            "where is",
-            "how old is",
-            "birthday of",
-            "capital of",
-            "population of",
-            "stock price of",
-            "weather in",
-            "current time",
-            "what time",
-            "what date",
-            "today is",
-            "narendra modi",
-            "modi",
-            "president",
-            "prime minister",
-            "minister",
-            "celebrity",
-            "actor",
-            "actress",
-            "singer",
-            "artist",
-            "writer",
-            "author",
-            "scientist",
-            "doctor",
-            "teacher",
-            "student",
-        ]
-
-        if any(keyword in user_lower for keyword in out_of_domain_keywords):
-            result.intent = IntentType.INVALID
-            result.confidence = 0.95
-            result.reasoning += " (overridden by out-of-domain detection)"
+        # Only apply confidence boosts, don't override ML model decisions
+        # The ML model should be trusted to make the final classification
+        # Low confidence cases will be handled by the fallback system
 
         return result
 

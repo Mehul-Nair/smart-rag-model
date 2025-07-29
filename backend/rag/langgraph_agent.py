@@ -330,7 +330,7 @@ trained_model_path = os.path.join(current_dir, "..", "trained_deberta_model")
 intent_classifier = IntentClassifierFactory.create(
     "improved_hybrid",
     {
-        "confidence_threshold": 0.3,
+        "confidence_threshold": 0.5,
         "primary_classifier": "huggingface",
         "fallback_classifier": "rule_based",
         "openai_fallback": True,  # Enable OpenAI as third fallback
@@ -395,7 +395,7 @@ def switch_to_improved_hybrid():
     intent_classifier = IntentClassifierFactory.create(
         "improved_hybrid",
         {
-            "confidence_threshold": 0.3,
+            "confidence_threshold": 0.5,
             "primary_classifier": "huggingface",
             "fallback_classifier": "rule_based",
             "openai_fallback": True,  # Enable OpenAI as third fallback
@@ -1330,9 +1330,9 @@ def is_out_of_domain(user_message: str) -> bool:
         r"calculate\s+",  # Calculate requests
         r"solve\s+",  # Solve requests
         r"what\s+is\s+\d+\s*[+\-*/]\s*\d+",  # Math questions
-        # General knowledge questions (comprehensive)
-        r"who\s+is\s+",  # Any "who is" question (person, politician, celebrity, etc.)
-        r"what\s+is\s+",  # General "what is" questions
+        # Only flag clearly out-of-domain questions, not general "what is" questions
+        r"who\s+is\s+(narendra|modi|president|prime minister|celebrity|actor|actress|singer|artist|writer|author|scientist|doctor|teacher|student)",  # Specific person questions
+        r"what\s+is\s+(capital|population|weather|stock price|birthday|age|time|date|today)",  # Specific non-product questions
         r"capital\s+of\s+",  # Geography questions
         r"weather\s+in\s+",  # Weather questions
         r"weather\s+",  # General weather
