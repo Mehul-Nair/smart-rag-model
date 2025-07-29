@@ -26,24 +26,122 @@ from .intent_modules import (
 
 # Dynamic NER is imported locally where needed for better performance
 
+# Import configuration
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from config import (
+        COMPANY_NAME,
+        COMPANY_BRAND,
+        DEFAULT_WARRANTY_PERIOD,
+        PRODUCT_TYPE_MAPPINGS,
+    )
+except ImportError:
+    # Fallback to environment variables if config import fails
+    COMPANY_NAME = os.getenv("COMPANY_NAME", "Asian Paints Beautiful Homes")
+    COMPANY_BRAND = os.getenv("COMPANY_BRAND", "Asian Paints Beautiful Homes")
+    DEFAULT_WARRANTY_PERIOD = os.getenv("DEFAULT_WARRANTY_PERIOD", "1-year")
+    PRODUCT_TYPE_MAPPINGS = {
+        "rug": "rugs",
+        "mat": "mats",
+        "curtain": "curtains",
+        "sofa": "furniture",
+        "chair": "furniture",
+        "table": "furniture",
+        "bed": "furniture",
+        "lamp": "lights",
+        "light": "lights",
+        "lighting": "lights",
+        "shower": "bath",
+        "bath": "bath",
+        "towel": "bath",
+        "furnishing": "furnishing",
+    }
+
 
 # --- Advanced Product Detail Handler ---
 def resolve_product(slots, history=None):
-    product = slots.get("PRODUCT_TYPE")
+    # First try to get product_name, then fall back to product_type
+    product = slots.get("product_name") or slots.get("PRODUCT_TYPE")
+
+    # If we have a product_name, use it directly
+    if slots.get("product_name"):
+        return slots["product_name"]
+
+    # If we have a PRODUCT_TYPE, try to construct a more specific product name
+    if slots.get("PRODUCT_TYPE"):
+        product_type = slots["PRODUCT_TYPE"]
+        # Try to combine with brand if available
+        if slots.get("brand"):
+            return f"{slots['brand']} {product_type}"
+        # Try to combine with size if available
+        elif slots.get("size"):
+            return f"{slots['size']} {product_type}"
+        else:
+            return product_type
+
+    # Fallback to history
     if not product and history:
         for turn in reversed(history or []):
-            if "PRODUCT_TYPE" in turn.get("slots", {}):
+            if "product_name" in turn.get("slots", {}):
+                product = turn["slots"]["product_name"]
+                break
+            elif "PRODUCT_TYPE" in turn.get("slots", {}):
                 product = turn["slots"]["PRODUCT_TYPE"]
                 break
+
     return product
+
+
+def extract_product_name_from_query(user_query):
+    """Extract product name from queries like 'give me details of [Product Name]'"""
+    import re
+
+    # Pattern to match "details of [Product Name]" or similar
+    patterns = [
+        r"details of (.+)",
+        r"give me details of (.+)",
+        r"tell me about (.+)",
+        r"what about (.+)",
+        r"show me details of (.+)",
+        r"get details of (.+)",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, user_query, re.IGNORECASE)
+        if match:
+            product_name = match.group(1).strip()
+            # Remove trailing punctuation
+            product_name = re.sub(r"[^\w\s-]+$", "", product_name)
+            return product_name
+
+    return None
 
 
 def resolve_details(slots, user_query):
     detail = slots.get("PRODUCT_DETAIL")
     if not detail:
-        keywords = ["pattern", "material", "dimensions", "color", "type", "description"]
+        # Look for specific detail keywords in the query
+        keywords = [
+            "pattern",
+            "material",
+            "dimensions",
+            "color",
+            "type",
+            "description",
+            "brand",
+            "price",
+            "size",
+        ]
         found = [k for k in keywords if k in user_query.lower()]
-        return found if found else ["all"]
+        # If no specific details requested, return comprehensive details
+        return (
+            found
+            if found
+            else ["title", "brand", "price", "material", "color", "size", "category"]
+        )
     if isinstance(detail, list):
         return detail
     return [detail]
@@ -56,11 +154,15 @@ def get_available_fields(doc):
 def map_detail_to_field(detail, available_fields):
     field_map = {
         "pattern": "pattern",
-        "material": "primary_material",
-        "dimensions": "dimension",
-        "color": "dominant_color",
+        "material": "material",
+        "dimensions": "size",
+        "color": "color",
         "type": "sub_category",
-        "description": "sku_description",
+        "description": "title",
+        "brand": "brand",
+        "price": "price",
+        "category": "category",
+        "size": "size",
     }
     for k, v in field_map.items():
         if detail.lower() in [k, v] and v in available_fields:
@@ -71,26 +173,93 @@ def map_detail_to_field(detail, available_fields):
 
 
 def build_contextual_prompt(product, details, user_query, history, fallback_msg):
-    details_text = "\n".join(f"{d.capitalize()}: {v}" for d, v in details.items() if v)
+    # Format details in a more structured way
+    details_text = ""
+    for detail_type, value in details.items():
+        if value and str(value).lower() != "nan":
+            if detail_type == "title":
+                details_text += f"Product Name: {value}\n"
+            elif detail_type == "price":
+                details_text += f"Price: ₹{value}\n"
+            elif detail_type == "brand":
+                details_text += f"Brand: {value}\n"
+            elif detail_type == "material":
+                details_text += f"Material: {value}\n"
+            elif detail_type == "color":
+                details_text += f"Color: {value}\n"
+            elif detail_type == "size":
+                details_text += f"Size: {value}\n"
+            elif detail_type == "category":
+                details_text += f"Category: {value}\n"
+            else:
+                details_text += f"{detail_type.capitalize()}: {value}\n"
+
+    # Smart history selection: preserve important context while optimizing performance
     history_text = ""
     if history:
+        # Always include the last 2 turns for immediate context
+        recent_turns = history[-2:]
+
+        # Look for product-related context in the last 10 turns
+        product_context_turns = []
+        for turn in history[-10:]:
+            if any(
+                keyword in turn.get("message", "").lower()
+                for keyword in [
+                    "product",
+                    "bed",
+                    "sofa",
+                    "chair",
+                    "table",
+                    "rug",
+                    "light",
+                    "curtain",
+                ]
+            ):
+                product_context_turns.append(turn)
+
+        # Combine recent turns with product context turns (avoid duplicates)
+        all_relevant_turns = recent_turns + product_context_turns
+        unique_turns = []
+        seen_messages = set()
+
+        for turn in all_relevant_turns:
+            message = turn.get("message", "")
+            if message not in seen_messages:
+                unique_turns.append(turn)
+                seen_messages.add(message)
+
+        # Limit to reasonable size (max 5 turns to balance context and performance)
+        selected_turns = unique_turns[-5:]
+
         history_text = "\n".join(
-            f"{turn['role']}: {turn['message']}" for turn in history[-5:]
+            f"{turn['role']}: {turn['message']}" for turn in selected_turns
         )
+
     prompt = (
         f"User asked: '{user_query}'\n"
         f"Product: {product}\n"
-        f"Details found:\n{details_text}\n"
+        f"Available Details:\n{details_text}\n"
         f"{fallback_msg}\n"
         f"Recent conversation:\n{history_text}\n"
-        "Please generate a friendly, informative, and concise reply using only the details found. "
-        "If some details are missing, mention only what is available."
+        "Please provide a concise, friendly, and informative response about this product. "
+        "Include all available details in a natural, conversational way. "
+        "If some information is missing, only mention what is available. "
+        "Keep the response focused and helpful."
     )
     return prompt
 
 
 def advanced_product_detail_handler(slots, retriever, llm, user_query, history=None):
-    product = resolve_product(slots, history)
+    # First try to extract product name directly from the query
+    product = extract_product_name_from_query(user_query)
+    print(f"Extracted product from query: {product}")
+
+    # If not found in query, try to resolve from slots
+    if not product:
+        product = resolve_product(slots, history)
+        print(f"Resolved product from slots: {product}")
+
     if not product:
         return "Which product do you mean? Please specify."
     details_requested = resolve_details(slots, user_query)
@@ -113,7 +282,41 @@ def advanced_product_detail_handler(slots, retriever, llm, user_query, history=N
     prompt = build_contextual_prompt(
         product, details, user_query, history, fallback_msg
     )
-    return llm.predict(prompt)
+
+    # Generate natural language response with timeout handling
+    try:
+        llm_response = llm.predict(prompt)
+    except Exception as e:
+        print(f"LLM prediction failed: {e}")
+        # Fallback response if LLM fails
+        details_text = ""
+        for detail_type, value in details.items():
+            if value and str(value).lower() != "nan":
+                if detail_type == "title":
+                    details_text += f"Product Name: {value}. "
+                elif detail_type == "price":
+                    details_text += f"Price: ₹{value}. "
+                elif detail_type == "brand":
+                    details_text += f"Brand: {value}. "
+                elif detail_type == "material":
+                    details_text += f"Material: {value}. "
+                elif detail_type == "color":
+                    details_text += f"Color: {value}. "
+                elif detail_type == "size":
+                    details_text += f"Size: {value}. "
+                elif detail_type == "category":
+                    details_text += f"Category: {value}. "
+                else:
+                    details_text += f"{detail_type.capitalize()}: {value}. "
+
+        llm_response = f"Here are the details for {product}: {details_text}"
+
+    # Return structured response for UI
+    return ProductDetailResponse(
+        product_name=product,
+        details={k: v for k, v in details.items() if v and str(v).lower() != "nan"},
+        message=llm_response,
+    )
 
 
 # --- Intent Classification System ---
@@ -125,10 +328,19 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 trained_model_path = os.path.join(current_dir, "..", "trained_deberta_model")
 
 intent_classifier = IntentClassifierFactory.create(
-    "huggingface",
+    "improved_hybrid",
     {
-        "model_path": trained_model_path,
-        "device": "cpu",
+        "confidence_threshold": 0.3,
+        "primary_classifier": "huggingface",
+        "fallback_classifier": "rule_based",
+        "enable_intent_specific_rules": True,
+        "implementation_configs": {
+            "huggingface": {
+                "model_path": trained_model_path,
+                "device": "cpu",
+            },
+            "rule_based": {"similarity_threshold": 0.3},
+        },
     },
 )
 
@@ -280,6 +492,15 @@ class ErrorResponse(BaseModel):
     """Schema for error responses"""
 
     type: str = Field(default="error")
+    message: str
+
+
+class ProductDetailResponse(BaseModel):
+    """Schema for product detail responses"""
+
+    type: str = Field(default="product_detail")
+    product_name: str
+    details: Dict[str, str]
     message: str
 
 
@@ -465,11 +686,28 @@ def extract_budget_from_text(text: str) -> Optional[str]:
 # --- Centralized Slot Prompting ---
 def prompt_for_slot(state: AgentState, slot: str) -> AgentState:
     # Create more specific and helpful clarification messages
+
+    # Get dynamic brand suggestions from the NER classifier
+    brand_suggestions = COMPANY_NAME
+    try:
+        from rag.intent_modules.dynamic_ner_classifier import get_dynamic_ner_classifier
+
+        ner_classifier = get_dynamic_ner_classifier()
+        if ner_classifier and ner_classifier.brand_names:
+            # Get first few brands as examples
+            sample_brands = list(ner_classifier.brand_names)[:5]
+            brand_suggestions = ", ".join(sample_brands) + f", {COMPANY_NAME}"
+    except Exception as e:
+        print(f"Error getting brand suggestions: {e}")
+
+    # Get dynamic product type suggestions from config
+    product_type_suggestions = ", ".join(PRODUCT_TYPE_MAPPINGS.values())
+
     slot_prompts = {
-        "product_type": "What specific type of product are you looking for? (e.g., shower curtains, bath mats, storage solutions, lighting, furniture)",
+        "product_type": f"What specific type of product are you looking for? (e.g., {product_type_suggestions})",
         "room_type": "Which room or space are you looking to decorate? (e.g., bathroom, bedroom, living room, kitchen, dining room, balcony, garden, office, study, hall, patio, terrace)",
         "budget": "What's your budget range? (e.g., under 1000, 1000-5000, above 10000)",
-        "brand": "Do you have a preferred brand? (e.g., IKEA, Home Depot, local brands)",
+        "brand": f"Do you have a preferred brand? (e.g., {brand_suggestions})",
         "color": "What color scheme are you looking for? (e.g., white, blue, neutral, colorful)",
         "material": "Any specific material preference? (e.g., wood, metal, plastic, fabric)",
         "style": "What style are you going for? (e.g., modern, traditional, minimalist, rustic)",
@@ -734,8 +972,11 @@ def classify_node(state: AgentState) -> AgentState:
             pass
         return state
 
-    # Use hybrid intent classifier with error handling
+    # Use hybrid intent classifier with error handling and analytics
     try:
+        # Import analytics module
+        from rag.intent_modules.intent_analytics import record_classification_event
+
         classification_result = intent_classifier.classify_intent(user_message)
         if classification_result is None:
             print(f"[{timestamp}] ❌ Intent classifier returned None, using fallback")
@@ -746,6 +987,18 @@ def classify_node(state: AgentState) -> AgentState:
             reasoning = "Intent classifier failed, using fallback"
             scores = {}
             processing_time = 0.0
+
+            # Record analytics for fallback
+            record_classification_event(
+                user_message=user_message,
+                classifier_method=method,
+                intent=intent.value,
+                confidence=confidence,
+                processing_time=processing_time,
+                session_id=state.get("session_id", "default"),
+                success=False,
+                error_message="Intent classifier returned None",
+            )
         else:
             intent = classification_result.intent
             confidence = classification_result.confidence
@@ -753,6 +1006,17 @@ def classify_node(state: AgentState) -> AgentState:
             reasoning = classification_result.reasoning
             scores = classification_result.scores
             processing_time = classification_result.processing_time
+
+            # Record analytics for successful classification
+            record_classification_event(
+                user_message=user_message,
+                classifier_method=method,
+                intent=intent.value,
+                confidence=confidence,
+                processing_time=processing_time,
+                session_id=state.get("session_id", "default"),
+                success=True,
+            )
     except Exception as e:
         print(f"[{timestamp}] ❌ Intent classifier failed with error: {e}")
         # Fallback to CLARIFY intent
@@ -762,6 +1026,23 @@ def classify_node(state: AgentState) -> AgentState:
         reasoning = f"Intent classifier error: {e}"
         scores = {}
         processing_time = 0.0
+
+        # Record analytics for error
+        try:
+            from rag.intent_modules.intent_analytics import record_classification_event
+
+            record_classification_event(
+                user_message=user_message,
+                classifier_method=method,
+                intent=intent.value,
+                confidence=confidence,
+                processing_time=processing_time,
+                session_id=state.get("session_id", "default"),
+                success=False,
+                error_message=str(e),
+            )
+        except:
+            pass  # Don't let analytics recording break the main flow
 
     # Trust the intent classifier completely - no overrides
     print(f"[{timestamp}] Intent classifier result - trusting completely")
@@ -776,44 +1057,6 @@ def classify_node(state: AgentState) -> AgentState:
 
     # Log the final intent decision
     print(f"[{timestamp}] FINAL INTENT DECISION: {intent.value}")
-
-    # For debugging: log what node this intent should route to
-    if intent == IntentType.CATEGORY_LIST:
-        print(f"[{timestamp}] DEBUG: CATEGORY_LIST intent should route to meta_node")
-    elif intent == IntentType.PRODUCT_SEARCH:
-        print(
-            f"[{timestamp}] DEBUG: PRODUCT_SEARCH intent should route to retrieve_node"
-        )
-    elif intent == IntentType.GREETING:
-        print(f"[{timestamp}] DEBUG: GREETING intent should route to meta_node")
-    elif intent == IntentType.HELP:
-        print(f"[{timestamp}] DEBUG: HELP intent should route to meta_node")
-
-    # Store classification details in state
-    state["intent"] = intent
-    state["intent_confidence"] = confidence
-    state["intent_scores"] = scores
-
-    print(f"[{timestamp}] Hybrid classification results:")
-    print(f"[{timestamp}] - Intent: {intent}")
-    print(f"[{timestamp}] - Confidence: {confidence:.3f}")
-    print(f"[{timestamp}] - Method: {method}")
-    print(f"[{timestamp}] - Reasoning: {reasoning}")
-    print(f"[{timestamp}] - Processing time: {processing_time:.3f}s")
-
-    # Log decision reasoning
-    if confidence >= 0.8:
-        print(
-            f"[{timestamp}] High confidence classification ({confidence:.3f}) using {method}"
-        )
-    elif confidence >= 0.5:
-        print(
-            f"[{timestamp}] Medium confidence classification ({confidence:.3f}) using {method}"
-        )
-    else:
-        print(
-            f"[{timestamp}] Low confidence classification ({confidence:.3f}) using {method}"
-        )
 
     # Set dynamic required slots based on final intent (after overrides)
     final_intent = state[
@@ -844,7 +1087,7 @@ def classify_node(state: AgentState) -> AgentState:
         # IntentType.BUDGET,  # Legacy - use BUDGET_QUERY
     ]:
         try:
-            # First, try Dynamic NER-based extraction
+            # Fast NER-based extraction
             from rag.intent_modules.dynamic_ner_classifier import (
                 extract_slots_from_text_dynamic,
             )
@@ -855,6 +1098,7 @@ def classify_node(state: AgentState) -> AgentState:
                 # Map NER entity types to slot names
                 slot_mapping = {
                     "PRODUCT_TYPE": "product_type",
+                    "PRODUCT_NAME": "product_name",  # Add missing PRODUCT_NAME mapping
                     "ROOM_TYPE": "room_type",
                     "ROOM": "room_type",  # Add this mapping
                     "BRAND": "brand",
@@ -877,7 +1121,7 @@ def classify_node(state: AgentState) -> AgentState:
                         state.setdefault("slots", {})[slot_name] = value
                         print(f"[{timestamp}] Auto-filled slot: {slot_name} = {value}")
 
-            # Enhanced budget extraction using regex patterns
+            # Fast budget extraction using regex patterns
             if "budget" not in state.get("slots", {}):
                 budget_value = extract_budget_from_text(user_message)
                 if budget_value:
@@ -885,24 +1129,8 @@ def classify_node(state: AgentState) -> AgentState:
                     print(
                         f"[{timestamp}] Enhanced budget extraction: budget = {budget_value}"
                     )
-                else:
-                    # Check conversation history for budget information
-                    conversation_history = state.get("conversation_history", [])
-                    for turn in reversed(
-                        conversation_history[-5:]
-                    ):  # Check last 5 turns
-                        if turn.get("role") == "user":
-                            history_budget = extract_budget_from_text(
-                                turn.get("message", "")
-                            )
-                            if history_budget:
-                                state.setdefault("slots", {})["budget"] = history_budget
-                                print(
-                                    f"[{timestamp}] Budget found in conversation history: budget = {history_budget}"
-                                )
-                                break
 
-            # Enhanced product type extraction for common patterns
+            # Fast product type extraction for common patterns
             if "product_type" not in state.get("slots", {}):
                 # Look for common product type patterns
                 product_patterns = [
@@ -1179,6 +1407,72 @@ def is_out_of_domain(user_message: str) -> bool:
     return False
 
 
+def validate_products_against_requirements(products, user_requirements):
+    """Validate if products actually match user requirements"""
+    if not user_requirements:
+        return products, []
+
+    matching_products = []
+    missing_requirements = []
+
+    # Track which requirements are missing across all products
+    all_missing = set()
+
+    for product in products:
+        product_text = (
+            f"{product.get('name', '')} {product.get('description', '')}".lower()
+        )
+        matches_all = True
+
+        for req_type, req_value in user_requirements.items():
+            if req_value and req_value.lower() != "nan":
+                # Normalize the requirement value for better matching
+                normalized_req = req_value.lower().strip()
+
+                if req_type == "color" and normalized_req not in product_text:
+                    matches_all = False
+                    all_missing.add(f"{req_type}:{req_value}")
+                elif req_type == "material" and normalized_req not in product_text:
+                    matches_all = False
+                    all_missing.add(f"{req_type}:{req_value}")
+                elif req_type == "size":
+                    # Handle size matching more intelligently
+                    size_matched = False
+
+                    # Check for exact match
+                    if normalized_req in product_text:
+                        size_matched = True
+                    else:
+                        # Handle common size variations
+                        size_variations = {
+                            "king sized": ["king", "king size", "king-sized"],
+                            "queen sized": ["queen", "queen size", "queen-sized"],
+                            "double": ["double", "full", "full size"],
+                            "single": ["single", "twin", "twin size"],
+                        }
+
+                        if normalized_req in size_variations:
+                            for variation in size_variations[normalized_req]:
+                                if variation in product_text:
+                                    size_matched = True
+                                    break
+
+                    if not size_matched:
+                        matches_all = False
+                        all_missing.add(f"{req_type}:{req_value}")
+
+        if matches_all:
+            matching_products.append(product)
+
+    # Only report missing requirements if NO products match
+    if not matching_products:
+        for missing in all_missing:
+            req_type, req_value = missing.split(":", 1)
+            missing_requirements.append({"type": req_type, "value": req_value})
+
+    return matching_products, missing_requirements
+
+
 def reason_node(state: AgentState) -> AgentState:
     node_start_time = time.time()
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1188,6 +1482,8 @@ def reason_node(state: AgentState) -> AgentState:
     user_message = state.get("user_message", "")
     slots = state.get("slots", {})
     required_slots = state.get("required_slots", [])
+    intent = state.get("intent")
+
     # Out-of-domain filter
     if is_out_of_domain(user_message):
         clarification_msg = (
@@ -1196,6 +1492,181 @@ def reason_node(state: AgentState) -> AgentState:
         state["llm_response"] = {"type": "clarification", "message": clarification_msg}
         update_conversation_history(state, "system", clarification_msg)
         return state
+
+    # Handle PRODUCT_DETAIL intent with advanced product detail handler
+    if intent == IntentType.PRODUCT_DETAIL:
+        print(
+            f"[{timestamp}] Using advanced product detail handler for PRODUCT_DETAIL intent"
+        )
+        try:
+            retriever = state.get("retriever")
+            history = state.get("conversation_history", [])
+            response = advanced_product_detail_handler(
+                slots, retriever, llm, user_message, history
+            )
+            state["llm_response"] = response
+            return state
+        except Exception as e:
+            print(f"[{timestamp}] Error in advanced product detail handler: {e}")
+            # Fall back to generic handling
+
+        # Handle WARRANTY_QUERY intent with dynamic warranty handler
+    if intent == IntentType.WARRANTY_QUERY:
+        print(f"[{timestamp}] Using dynamic warranty handler for WARRANTY_QUERY intent")
+        try:
+            product_type = slots.get("product_type", "")
+            brand = slots.get("brand", "")
+            product_name = slots.get("product_name", "")
+            retriever = state.get("retriever")
+
+            # Retrieve relevant documents to find warranty information
+            search_queries = []
+
+            # Try different search strategies
+            if product_name:
+                search_queries.append(f"warranty {product_name}")
+            if product_type:
+                search_queries.append(f"warranty {product_type}")
+            if brand:
+                search_queries.append(f"warranty {brand}")
+
+            # Also search for the product directly to get all its information
+            if product_name:
+                search_queries.append(product_name)
+            elif product_type:
+                search_queries.append(product_type)
+
+            print(
+                f"[{timestamp}] Searching for warranty info with queries: {search_queries}"
+            )
+
+            # Collect documents from all search queries
+            all_warranty_docs = []
+            for query in search_queries:
+                docs = retriever.retrieve(query, k=3)
+                all_warranty_docs.extend(docs)
+
+            # Remove duplicates based on content
+            unique_docs = []
+            seen_content = set()
+            for doc in all_warranty_docs:
+                content_hash = hash(doc.page_content)
+                if content_hash not in seen_content:
+                    unique_docs.append(doc)
+                    seen_content.add(content_hash)
+
+            # Extract warranty information from retrieved documents
+            warranty_info = []
+            product_details = []
+
+            for doc in unique_docs:
+                # Extract warranty information
+                if "warranty" in doc.page_content.lower():
+                    warranty_info.append(doc.page_content)
+                if hasattr(doc, "metadata") and doc.metadata.get("warranty"):
+                    warranty_info.append(f"Warranty: {doc.metadata['warranty']}")
+
+                # Extract product details for context
+                product_detail_parts = []
+                if hasattr(doc, "metadata"):
+                    metadata = doc.metadata
+                    if metadata.get("title"):
+                        product_detail_parts.append(f"Product: {metadata['title']}")
+                    if metadata.get("brand_name"):
+                        product_detail_parts.append(f"Brand: {metadata['brand_name']}")
+                    if metadata.get("primary_material"):
+                        product_detail_parts.append(
+                            f"Material: {metadata['primary_material']}"
+                        )
+                    if metadata.get("colour"):
+                        product_detail_parts.append(f"Color: {metadata['colour']}")
+                    if metadata.get("size"):
+                        product_detail_parts.append(f"Size: {metadata['size']}")
+
+                if product_detail_parts:
+                    product_details.append(" | ".join(product_detail_parts))
+
+            if warranty_info:
+                # Use actual warranty data from the database
+                warranty_context = "\n".join(
+                    warranty_info[:3]
+                )  # Use first 3 relevant pieces
+                product_context = (
+                    "\n".join(product_details[:2]) if product_details else ""
+                )
+
+                warranty_prompt = f"""You are a helpful customer service representative for {COMPANY_NAME}. 
+
+The customer is asking about warranty for: {product_name or product_type} from {brand or COMPANY_NAME}.
+
+Here is the actual warranty information from our product database:
+{warranty_context}
+
+{f"Product Details: {product_context}" if product_context else ""}
+
+Please provide a professional, helpful warranty response that:
+1. Acknowledges the specific product they're asking about
+2. Uses the actual warranty information provided above
+3. Explains the warranty terms clearly
+4. Maintains focus on {COMPANY_NAME} brand
+
+IMPORTANT: Respond with a simple, friendly text message. Do NOT use JSON format or product suggestion format. Just provide a natural warranty explanation.
+
+Response:"""
+
+                warranty_message = (
+                    llm.predict(warranty_prompt)
+                    if llm
+                    else f"Based on our product database, here's the warranty information for {product_name or product_type}: {warranty_context}"
+                )
+
+                # Ensure the response is a simple text message, not a product suggestion
+                if (
+                    warranty_message.strip().startswith("{")
+                    and '"type"' in warranty_message
+                ):
+                    # If LLM returned JSON, extract just the message part
+                    try:
+                        import json
+
+                        parsed = json.loads(warranty_message)
+                        if "message" in parsed:
+                            warranty_message = parsed["message"]
+                        elif "summary" in parsed:
+                            warranty_message = parsed["summary"]
+                    except:
+                        # If JSON parsing fails, use a fallback message
+                        warranty_message = f"Based on our product database, here's the warranty information for {product_name or product_type}: {warranty_context}"
+            else:
+                # Fallback to default warranty if no specific info found
+                warranty_prompt = f"""You are a helpful customer service representative for {COMPANY_NAME}. 
+
+The customer is asking about warranty for: {product_name or product_type} from {brand or COMPANY_NAME}.
+
+Please provide a professional, helpful warranty response that:
+1. Acknowledges the specific product they're asking about
+2. Explains our standard warranty terms
+3. Offers to help with extended warranty options
+4. Maintains focus on {COMPANY_NAME} brand
+
+IMPORTANT: Respond with a simple, friendly text message. Do NOT use JSON format or product suggestion format. Just provide a natural warranty explanation.
+
+Response:"""
+
+                warranty_message = (
+                    llm.predict(warranty_prompt)
+                    if llm
+                    else f"Regarding warranty for {product_name or product_type} from {brand or COMPANY_NAME}: All our products come with a standard {DEFAULT_WARRANTY_PERIOD} manufacturer warranty covering defects in materials and workmanship. For extended warranty options or specific warranty terms, please contact our customer service team."
+                )
+
+            warranty_response = {"type": "text", "message": warranty_message}
+
+            state["llm_response"] = warranty_response
+            return state
+        except Exception as e:
+            print(f"[{timestamp}] Error in warranty handler: {e}")
+            # Fall back to generic handling
+
     # Check for missing slots
     print(f"[{timestamp}] Required slots: {required_slots}")
     print(f"[{timestamp}] Current slots: {slots}")
@@ -1204,6 +1675,7 @@ def reason_node(state: AgentState) -> AgentState:
             print(f"[{timestamp}] Missing slot: {slot}")
             return prompt_for_slot(state, slot)
     print(f"[{timestamp}] All required slots filled, proceeding to LLM")
+
     # Use conversation summary if available
     summary = maybe_summarize_conversation(state, llm)
     context = "\n".join([doc.page_content for doc in docs])
@@ -1248,6 +1720,15 @@ def reason_node(state: AgentState) -> AgentState:
         "IMPORTANT: Reply ONLY in valid JSON as per the above schema. Do not reply in free text."
     )
     try:
+        # Extract user requirements from slots for validation
+        user_requirements = {}
+        if "color" in slots:
+            user_requirements["color"] = slots["color"]
+        if "material" in slots:
+            user_requirements["material"] = slots["material"]
+        if "size" in slots:
+            user_requirements["size"] = slots["size"]
+
         # Simplified prompt to avoid syntax issues
         summary_text = f"Conversation summary: {summary}\n" if summary else ""
         history_text = (
@@ -1255,6 +1736,12 @@ def reason_node(state: AgentState) -> AgentState:
         )
 
         full_prompt = f"""You are a helpful home decor assistant. Provide product suggestions based on the user's requirements.
+
+IMPORTANT RULES:
+1. ONLY suggest products that are explicitly mentioned in the context
+2. If the context doesn't contain products matching the user's requirements, be honest about it
+3. Do NOT claim to have products in specific colors/materials if they're not in the context
+4. If you can't find exact matches, suggest alternatives but clearly state what's missing
 
 Available response types:
 1. product_suggestion: When you have relevant products to suggest
@@ -1320,6 +1807,40 @@ IMPORTANT: Reply ONLY in valid JSON as per the above schema. Do not reply in fre
         llm_time = llm_end - llm_start
         print(f"[{timestamp}] LLM response generation time: {llm_time:.2f} seconds")
         print(f"[{timestamp}] Raw LLM response: {response}")
+
+        # Validate the response against user requirements
+        try:
+            import json
+
+            response_data = json.loads(response)
+            if (
+                response_data.get("type") == "product_suggestion"
+                and "products" in response_data
+            ):
+                products = response_data["products"]
+                matching_products, missing_requirements = (
+                    validate_products_against_requirements(products, user_requirements)
+                )
+
+                if missing_requirements:
+                    # Update the response to be honest about missing requirements
+                    missing_text = ", ".join(
+                        [
+                            f"{req['type']} ({req['value']})"
+                            for req in missing_requirements
+                        ]
+                    )
+                    response_data["summary"] = (
+                        f"I couldn't find products with the exact {missing_text} you requested, but here are some alternatives:"
+                    )
+                    response_data["products"] = matching_products
+                    response = json.dumps(response_data)
+                    print(
+                        f"[{timestamp}] Updated response to reflect missing requirements: {missing_text}"
+                    )
+        except Exception as e:
+            print(f"[{timestamp}] Error validating response: {e}")
+
         parsed_response = parse_and_validate_response(response, timestamp)
         # Fallback: if parsed_response is an error or invalid, wrap as clarification
         if isinstance(parsed_response, dict) and parsed_response.get("type") == "error":
@@ -1688,10 +2209,75 @@ def get_categories(retriever, timestamp: str) -> List[str]:
 def slot_processor_node(state: AgentState) -> AgentState:
     required_slots = state.get("required_slots", ["room_type"])
     filled_slots = state.get("slots", {})
+    user_message = state.get("user_message", "").lower()
+
+    # Check if user is referring to a previous product with "this", "it", "that"
+    if any(
+        word in user_message
+        for word in ["this", "it", "that", "the product", "the item"]
+    ):
+        print(f"[SLOT_PROCESSOR] Processing follow-up question: {user_message}")
+        print(f"[SLOT_PROCESSOR] Current slots: {filled_slots}")
+
+        # Try to infer missing slots from context
+        if "product_type" not in filled_slots and "product_name" in filled_slots:
+            # If we have a product name but no type, try to infer from the name dynamically
+            product_name = filled_slots.get("product_name", "")
+            product_name_lower = product_name.lower()
+
+            # Use dynamic product type mappings from config
+            for keyword, category in PRODUCT_TYPE_MAPPINGS.items():
+                if keyword in product_name_lower:
+                    filled_slots["product_type"] = category
+                    print(
+                        f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product name"
+                    )
+                    break
+            else:
+                # If no keyword match found, try to extract from product name structure
+                if " - " in product_name:
+                    # Extract the part after the dash which might contain product type
+                    after_dash = product_name.split(" - ")[1].lower()
+                    for keyword, category in PRODUCT_TYPE_MAPPINGS.items():
+                        if keyword in after_dash:
+                            filled_slots["product_type"] = category
+                            print(
+                                f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product description"
+                            )
+                            break
+
+        if "brand" not in filled_slots and "product_name" in filled_slots:
+            # Try to extract brand from product name dynamically
+            product_name = filled_slots.get("product_name", "")
+
+            # Extract the first part of the product name (usually the brand)
+            if " - " in product_name:
+                brand_from_name = product_name.split(" - ")[0].strip()
+                filled_slots["brand"] = brand_from_name
+                print(
+                    f"[SLOT_PROCESSOR] Auto-filled brand from product name: {brand_from_name}"
+                )
+            else:
+                # If no clear brand separator, use the first word as brand
+                first_word = product_name.split()[0] if product_name else ""
+                if first_word:
+                    filled_slots["brand"] = first_word
+                    print(
+                        f"[SLOT_PROCESSOR] Auto-filled brand from first word: {first_word}"
+                    )
+                else:
+                    filled_slots["brand"] = COMPANY_NAME
+                    print(f"[SLOT_PROCESSOR] Using default brand: {COMPANY_NAME}")
+
+        # Update the state with the filled slots
+        state["slots"] = filled_slots
+        print(f"[SLOT_PROCESSOR] Updated slots: {filled_slots}")
+
     missing_slots = [slot for slot in required_slots if slot not in filled_slots]
     if missing_slots:
+        print(f"[SLOT_PROCESSOR] Missing slots: {missing_slots}")
         return prompt_for_slot(state, missing_slots[0])
-    print("All required slots filled. Proceeding to reason node.")
+    print("[SLOT_PROCESSOR] All required slots filled. Proceeding to reason node.")
     return state
 
 
@@ -1699,7 +2285,11 @@ def slot_processor_node(state: AgentState) -> AgentState:
 
 
 def build_langgraph_agent(retriever, openai_api_key: str):
-    llm = ChatOpenAI(api_key=SecretStr(openai_api_key), temperature=0)
+    llm = ChatOpenAI(
+        api_key=SecretStr(openai_api_key),
+        temperature=0,
+        request_timeout=30,  # 30 second timeout to prevent very slow responses
+    )
 
     state_schema = AgentState
     graph = StateGraph(state_schema)
@@ -1734,11 +2324,15 @@ def build_langgraph_agent(retriever, openai_api_key: str):
             IntentType.PRODUCT_SEARCH,
             IntentType.PRODUCT_DETAIL,
             IntentType.BUDGET_QUERY,
-            IntentType.WARRANTY_QUERY,
             IntentType.PRODUCT,
         ]:
             print(f"[ROUTING] 🎯 Routing {intent.value} to retrieve_node")
             return "retrieve"
+        elif intent == IntentType.WARRANTY_QUERY:
+            print(
+                f"[ROUTING] 🎯 Routing WARRANTY_QUERY to slot_processor (for context handling)"
+            )
+            return "slot_processor"
         elif intent == IntentType.INVALID:
             print(f"[ROUTING] 🎯 Routing INVALID to reject_node")
             return "reject"
@@ -1761,6 +2355,7 @@ def build_langgraph_agent(retriever, openai_api_key: str):
             "meta": "meta",
             "clarify": "clarify",
             "retrieve": "retrieve",
+            "slot_processor": "slot_processor",
             "reject": "reject",
         },
     )
@@ -1795,24 +2390,88 @@ def build_langgraph_agent(retriever, openai_api_key: str):
         # Check if the user message seems like a new query vs continuation
         user_lower = user_message.lower().strip()
 
-        # More intelligent new conversation detection - less aggressive
+        # Define greeting keywords
+        greeting_keywords = [
+            "hello",
+            "hi",
+            "hey",
+            "good morning",
+            "good afternoon",
+            "good evening",
+            "greetings",
+            "howdy",
+            "what's up",
+        ]
+
+        # More intelligent new conversation detection - preserve context better
         is_new_conversation = (
-            # Greeting or help request
+            # Only clear for explicit greetings or meta questions
             any(greeting in user_lower for greeting in greeting_keywords)
             or
             # Category listing questions (always new)
             "categories" in user_lower
+            and len(user_lower.split()) <= 3
             or
             # Meta questions (always new)
             any(
                 meta in user_lower
-                for meta in ["help", "what can you do", "how does this work"]
+                for meta in [
+                    "help",
+                    "what can you do",
+                    "how does this work",
+                    "what are you",
+                ]
             )
-            # Removed the aggressive short message detection that was clearing slots
+            # Preserve context for follow-up questions, clarifications, and product requests
         )
 
-        # Preserve slots unless it's clearly a new conversation
+        # Enhanced context preservation: Don't clear if user is asking about "this" or "it"
+        context_preservation_keywords = [
+            "this",
+            "it",
+            "that",
+            "the product",
+            "the item",
+            "the bed",
+            "the sofa",
+            "the chair",
+            "the table",
+            "the rug",
+            "the light",
+            "the curtain",
+            "details",
+            "warranty",
+            "price",
+            "color",
+            "size",
+            "material",
+            "specifications",
+        ]
+
+        if any(word in user_lower for word in context_preservation_keywords):
+            is_new_conversation = False
+            print(
+                f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Preserving context for follow-up question: {user_message}"
+            )
+
+        # Smart slot preservation: Keep important slots even for new conversations
         slots_to_use = session_state["slots"].copy() if not is_new_conversation else {}
+
+        # Even for new conversations, preserve critical product context if it exists
+        if is_new_conversation and session_state["slots"]:
+            # Preserve product_name if it exists (most important for context)
+            if "product_name" in session_state["slots"]:
+                slots_to_use["product_name"] = session_state["slots"]["product_name"]
+                print(
+                    f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Preserving product_name: {session_state['slots']['product_name']}"
+                )
+
+            # Preserve brand if it exists
+            if "brand" in session_state["slots"]:
+                slots_to_use["brand"] = session_state["slots"]["brand"]
+                print(
+                    f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Preserving brand: {session_state['slots']['brand']}"
+                )
 
         if is_new_conversation and session_state["slots"]:
             print(
@@ -1831,6 +2490,7 @@ def build_langgraph_agent(retriever, openai_api_key: str):
             "pending_intent": session_state["pending_intent"],
             "corrections": session_state["corrections"].copy(),
             "conversation_summary": session_state["conversation_summary"],
+            "session_id": session_id,  # Add session_id for analytics tracking
         }
 
         # Run the graph with strict routing

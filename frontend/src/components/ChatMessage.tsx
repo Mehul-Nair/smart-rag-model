@@ -2,9 +2,11 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Bot, User } from "lucide-react";
 import ProductResponse from "./ProductResponse";
+import ProductDetailResponse from "./ProductDetailResponse";
 import CategoryResponse from "./CategoryResponse";
 import CategoryNotFoundResponse from "./CategoryNotFoundResponse";
 import BudgetConstraintResponse from "./BudgetConstraintResponse";
+import WarrantyResponse from "./WarrantyResponse";
 
 interface Product {
   name: string;
@@ -38,14 +40,28 @@ interface CategoryListData {
   message: string;
 }
 
+interface ProductDetailData {
+  type: string;
+  product_name: string;
+  details: Record<string, string>;
+  message: string;
+}
+
+interface TextResponseData {
+  type: string;
+  message: string;
+}
+
 interface Message {
   id: string;
   content:
     | string
     | ProductResponseData
+    | ProductDetailData
     | CategoryNotFoundData
     | BudgetConstraintData
     | CategoryListData
+    | TextResponseData
     | string[];
   sender: "user" | "ai";
   timestamp: Date;
@@ -94,6 +110,24 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             timestamp={message.timestamp}
             onCategoryClick={onCategoryClick}
             userQuery={message.userQuery}
+          />
+        </motion.div>
+      );
+    }
+
+    if (responseType === "product_detail") {
+      console.log("Rendering ProductDetailResponse component"); // Debug log
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full"
+        >
+          <ProductDetailResponse
+            data={message.content as ProductDetailData}
+            timestamp={message.timestamp}
           />
         </motion.div>
       );
@@ -158,6 +192,73 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               hour: "2-digit",
               minute: "2-digit",
             })}
+          </div>
+        </motion.div>
+      );
+    }
+
+    // Handle text response (like warranty info)
+    if (responseType === "text" && "message" in message.content) {
+      // Check if this is warranty-related content
+      const messageText = message.content.message.toLowerCase();
+      const warrantyKeywords = [
+        "warranty",
+        "warranties",
+        "guarantee",
+        "guaranteed",
+        "coverage",
+        "defects",
+        "manufacturing",
+        "craftsmanship",
+        "six-month",
+        "one-year",
+        "two-year",
+        "period",
+      ];
+
+      const isWarrantyRelated = warrantyKeywords.some((keyword) =>
+        messageText.includes(keyword)
+      );
+
+      if (isWarrantyRelated) {
+        console.log("Rendering WarrantyResponse component"); // Debug log
+        return (
+          <WarrantyResponse
+            data={message.content as TextResponseData}
+            timestamp={message.timestamp}
+          />
+        );
+      }
+
+      // Regular text response
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full"
+        >
+          <div className="flex items-start space-x-3 chat-message-container">
+            {/* Avatar */}
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <Bot className="w-4 h-4 text-white" />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 flex-stable">
+              <div className="inline-block px-5 py-3 rounded-2xl shadow-lg max-w-xs lg:max-w-md backdrop-blur-sm border bg-white/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-100 border-white/50 dark:border-gray-600/50">
+                <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                  {message.content.message}
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-1">
+                {message.timestamp.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+            </div>
           </div>
         </motion.div>
       );
@@ -232,6 +333,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
             {typeof message.content === "string"
               ? message.content
+              : typeof message.content === "object" &&
+                "message" in message.content
+              ? message.content.message
               : "Product data received"}
           </div>
         </motion.div>

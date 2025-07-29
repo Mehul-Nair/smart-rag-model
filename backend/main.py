@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
 from rag.retriever import ExcelRetriever
@@ -20,7 +21,34 @@ if OPENAI_API_KEY is None:
         "Missing OpenAI API Key. Please set OPENAI_API_KEY in your environment."
     )
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown"""
+    # Startup
+    print("🚀 Starting backend initialization...")
+
+    # Pre-initialize NER classifier for faster response times
+    print("🧠 Pre-initializing NER classifier...")
+    try:
+        from rag.intent_modules.dynamic_ner_classifier import get_dynamic_ner_classifier
+
+        ner_classifier = get_dynamic_ner_classifier()
+        print(f"✅ NER classifier pre-initialized successfully")
+        print(f"   - Loaded {len(ner_classifier.product_names)} product names")
+        print(f"   - Loaded {len(ner_classifier.brand_names)} brands")
+    except Exception as e:
+        print(f"⚠️ NER classifier pre-initialization failed: {e}")
+
+    print("🎯 Backend ready to serve requests!")
+
+    yield
+
+    # Shutdown
+    print("🛑 Shutting down backend...")
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Allow CORS for frontend development
 app.add_middleware(
@@ -95,7 +123,7 @@ async def chat_endpoint(request: ChatRequest):
 
     # Ensure response is JSON-serializable
     if isinstance(response, BaseModel):
-        response = response.dict()
+        response = response.model_dump()
 
     # Check if response is already a dict (product suggestion) or string
     if isinstance(response, dict):
@@ -108,6 +136,8 @@ async def chat_endpoint(request: ChatRequest):
             "error",
             "greeting",  # Added to handle greeting responses
             "category_list",  # Added to handle category list responses
+            "product_detail",  # Added to handle product detail responses
+            "text",  # Added to handle text responses (like warranty info)
         ]:
             print(f"[{timestamp}] Returning {response_type}")
             result = {"response": response, "type": response_type}
@@ -123,6 +153,32 @@ async def chat_endpoint(request: ChatRequest):
         result = {"response": response, "type": "text"}
         print(f"[{timestamp}] Returning to frontend: {result}")
         return result
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint to verify system status"""
+    try:
+        from rag.intent_modules.dynamic_ner_classifier import get_dynamic_ner_classifier
+
+        ner_classifier = get_dynamic_ner_classifier()
+
+        return {
+            "status": "healthy",
+            "ner_classifier": {
+                "initialized": ner_classifier.is_initialized,
+                "product_names_count": len(ner_classifier.product_names),
+                "brand_names_count": len(ner_classifier.brand_names),
+                "total_queries": ner_classifier.total_queries,
+                "average_time": (
+                    ner_classifier.total_time / ner_classifier.total_queries
+                    if ner_classifier.total_queries > 0
+                    else 0
+                ),
+            },
+        }
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
 
 
 @app.get("/debug/session/{session_id}")
@@ -141,6 +197,60 @@ async def debug_session(session_id: str):
         }
     else:
         return {"error": "Session not found"}
+
+
+@app.get("/analytics/intent-classification")
+async def get_intent_analytics(time_window_minutes: Optional[int] = None):
+    """Get intent classification analytics"""
+    from rag.intent_modules.intent_analytics import analytics, get_analytics_summary
+    from datetime import timedelta
+
+    if time_window_minutes:
+        time_window = timedelta(minutes=time_window_minutes)
+    else:
+        time_window = None
+
+    stats = analytics.get_statistics(time_window)
+    summary = get_analytics_summary(time_window)
+
+    return {
+        "summary": summary,
+        "statistics": stats,
+        "rule_based_percentage": analytics.get_rule_based_percentage(time_window),
+        "performance_comparison": analytics.get_classifier_performance_comparison(
+            time_window
+        ),
+    }
+
+
+@app.get("/analytics/export")
+async def export_analytics(time_window_minutes: Optional[int] = None):
+    """Export analytics data to JSON file"""
+    from rag.intent_modules.intent_analytics import analytics
+    from datetime import timedelta
+    import os
+
+    if time_window_minutes:
+        time_window = timedelta(minutes=time_window_minutes)
+    else:
+        time_window = None
+
+    # Create analytics directory if it doesn't exist
+    analytics_dir = os.path.join(os.path.dirname(__file__), "analytics")
+    os.makedirs(analytics_dir, exist_ok=True)
+
+    # Generate filename with timestamp
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"intent_analytics_{timestamp}.json"
+    filepath = os.path.join(analytics_dir, filename)
+
+    analytics.export_data(filepath, time_window)
+
+    return {
+        "message": "Analytics exported successfully",
+        "filepath": filepath,
+        "filename": filename,
+    }
 
 
 if __name__ == "__main__":

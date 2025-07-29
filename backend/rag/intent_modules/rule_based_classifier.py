@@ -155,6 +155,20 @@ class RuleBasedIntentClassifier(BaseIntentClassifier):
                     "details",
                     "information",
                     "describe",
+                    "give me details",
+                    "details of",
+                    "tell me about",
+                    "what about",
+                    "show me details",
+                    "get details",
+                ],
+                "specific_detail_patterns": [
+                    "give me details of",
+                    "details of",
+                    "tell me about",
+                    "what about",
+                    "show me details of",
+                    "get details of",
                 ],
             },
             IntentType.WARRANTY_QUERY: {
@@ -410,11 +424,16 @@ class RuleBasedIntentClassifier(BaseIntentClassifier):
                 processing_time=time.time() - start_time,
             )
 
-        # Calculate confidence for each intent
-        intent_scores = {}
-        for intent in IntentType:
-            confidence = self.get_intent_confidence(user_message, intent)
-            intent_scores[intent] = confidence
+        # Special handling for "give me details of" pattern - should be PRODUCT_DETAIL
+        if "give me details of" in user_lower or "details of" in user_lower:
+            intent_scores = {intent: 0.0 for intent in IntentType}
+            intent_scores[IntentType.PRODUCT_DETAIL] = 1.0
+        else:
+            # Calculate confidence for each intent
+            intent_scores = {}
+            for intent in IntentType:
+                confidence = self.get_intent_confidence(user_message, intent)
+                intent_scores[intent] = confidence
 
         # Find the intent with highest confidence
         best_intent = max(intent_scores, key=intent_scores.get)

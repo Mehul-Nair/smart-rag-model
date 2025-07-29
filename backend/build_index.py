@@ -124,18 +124,72 @@ def build_faiss_index():
 
             # Create documents for this category
             for i, row in category_df.iterrows():
-                # Create document content from relevant fields
+                # Create document content from relevant fields based on NER mapping
                 content_parts = []
+
+                # Basic product information
                 if "title" in row and pd.notna(row["title"]):
                     content_parts.append(f"Title: {row['title']}")
                 if "pdp_header" in row and pd.notna(row["pdp_header"]):
                     content_parts.append(f"Description: {row['pdp_header']}")
-                if "mrp" in row and pd.notna(row["mrp"]):
-                    content_parts.append(f"Price: {row['mrp']}")
+                if "detailed_product_description" in row and pd.notna(
+                    row["detailed_product_description"]
+                ):
+                    content_parts.append(
+                        f"Detailed Description: {row['detailed_product_description']}"
+                    )
+
+                # Category information
                 if "main_category" in row and pd.notna(row["main_category"]):
                     content_parts.append(f"Main Category: {row['main_category']}")
                 if "sub_category" in row and pd.notna(row["sub_category"]):
                     content_parts.append(f"Sub Category: {row['sub_category']}")
+
+                # Product specifications
+                if "primary_material" in row and pd.notna(row["primary_material"]):
+                    content_parts.append(f"Primary Material: {row['primary_material']}")
+                if "secondary_material" in row and pd.notna(row["secondary_material"]):
+                    content_parts.append(
+                        f"Secondary Material: {row['secondary_material']}"
+                    )
+                if "colour" in row and pd.notna(row["colour"]):
+                    content_parts.append(f"Color: {row['colour']}")
+                if "size" in row and pd.notna(row["size"]):
+                    content_parts.append(f"Size: {row['size']}")
+
+                # Brand and style information
+                if "brand_name" in row and pd.notna(row["brand_name"]):
+                    content_parts.append(f"Brand: {row['brand_name']}")
+                if "style" in row and pd.notna(row["style"]):
+                    content_parts.append(f"Style: {row['style']}")
+
+                # Price and budget information
+                if "mrp" in row and pd.notna(row["mrp"]):
+                    content_parts.append(f"Price: {row['mrp']}")
+                if "discounted_price" in row and pd.notna(row["discounted_price"]):
+                    content_parts.append(f"Discounted Price: {row['discounted_price']}")
+
+                # Warranty and care information
+                if "warranty" in row and pd.notna(row["warranty"]):
+                    content_parts.append(f"Warranty: {row['warranty']}")
+                if "careInstructions" in row and pd.notna(row["careInstructions"]):
+                    content_parts.append(
+                        f"Care Instructions: {row['careInstructions']}"
+                    )
+                if "instructions_for_care" in row and pd.notna(
+                    row["instructions_for_care"]
+                ):
+                    content_parts.append(
+                        f"Care Instructions: {row['instructions_for_care']}"
+                    )
+
+                # Additional specifications
+                if "pattern" in row and pd.notna(row["pattern"]):
+                    content_parts.append(f"Pattern: {row['pattern']}")
+                if "collection" in row and pd.notna(row["collection"]):
+                    content_parts.append(f"Collection: {row['collection']}")
+                if "end_use" in row and pd.notna(row["end_use"]):
+                    content_parts.append(f"End Use: {row['end_use']}")
 
                 doc_content = " | ".join(content_parts)
 
@@ -151,6 +205,24 @@ def build_faiss_index():
                         "title": str(row.get("title", "")),
                         "price": str(row.get("mrp", "")),
                         "url": str(row.get("url", "")),
+                        "warranty": str(row.get("warranty", "")),
+                        "brand_name": str(row.get("brand_name", "")),
+                        "primary_material": str(row.get("primary_material", "")),
+                        "secondary_material": str(row.get("secondary_material", "")),
+                        "colour": str(row.get("colour", "")),
+                        "size": str(row.get("size", "")),
+                        "style": str(row.get("style", "")),
+                        "pattern": str(row.get("pattern", "")),
+                        "collection": str(row.get("collection", "")),
+                        "end_use": str(row.get("end_use", "")),
+                        "careInstructions": str(row.get("careInstructions", "")),
+                        "instructions_for_care": str(
+                            row.get("instructions_for_care", "")
+                        ),
+                        "discounted_price": str(row.get("discounted_price", "")),
+                        "detailed_product_description": str(
+                            row.get("detailed_product_description", "")
+                        ),
                     },
                 )
                 all_docs.append(doc)

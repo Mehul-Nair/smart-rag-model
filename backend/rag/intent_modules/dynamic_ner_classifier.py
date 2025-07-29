@@ -65,32 +65,30 @@ class DynamicNERClassifier:
             excel_path = os.path.join(backend_dir, "data", "BH_PD.xlsx")
 
             if os.path.exists(excel_path):
-                df = pd.read_excel(excel_path)
+                # Load only necessary columns for better performance
+                df = pd.read_excel(excel_path, usecols=["title", "brand_name"])
 
-                # Extract product names from titles
+                # Extract product names from titles - optimized
+                product_names_set = set()
                 for title in df["title"].dropna():
-                    # Extract the main product name (before parentheses)
                     product_name = self._extract_main_product_name(str(title))
                     if product_name:
-                        self.product_names.add(product_name.lower())
-                        # Store variations
-                        self.product_name_patterns[product_name.lower()].append(
-                            str(title)
-                        )
+                        product_names_set.add(product_name.lower())
 
-                # Extract brands
+                self.product_names = product_names_set
+
+                # Extract brands - optimized
+                brand_names_set = set()
                 for brand in df["brand_name"].dropna():
                     brand_str = str(brand).strip()
                     if brand_str and brand_str.lower() != "nan":
-                        self.brand_names.add(brand_str.lower())
+                        brand_names_set.add(brand_str.lower())
+
+                self.brand_names = brand_names_set
 
                 print(
                     f"✅ Loaded {len(self.product_names)} product names and {len(self.brand_names)} brands"
                 )
-
-                # Show some examples
-                print(f"📝 Sample product names: {list(self.product_names)[:5]}")
-                print(f"🏷️ Sample brands: {list(self.brand_names)[:5]}")
 
             else:
                 print(f"⚠️ Excel file not found at {excel_path}")
@@ -103,23 +101,8 @@ class DynamicNERClassifier:
         # Remove parentheses and everything after
         main_part = re.split(r"[\(\)]", title)[0].strip()
 
-        # Remove common suffixes
-        suffixes_to_remove = [
-            "ceiling light",
-            "wall light",
-            "floor lamp",
-            "pendant light",
-            "chandelier",
-            "vanity light",
-            "table lamp",
-            "sconce",
-        ]
-
-        for suffix in suffixes_to_remove:
-            if main_part.lower().endswith(suffix.lower()):
-                main_part = main_part[: -len(suffix)].strip()
-                break
-
+        # Return the full product name as it appears in the database
+        # This preserves the complete product name like "ROOHE - Wool Hand Tufted Rug"
         return main_part if main_part else None
 
     def _initialize(self) -> bool:
@@ -162,6 +145,7 @@ class DynamicNERClassifier:
             # First, try dynamic product name recognition
             product_name = self._find_product_name_in_text(text)
             if product_name:
+                print(f"🎯 Dynamic NER found product name: {product_name}")
                 entities = [
                     Entity(
                         text=product_name,
@@ -208,9 +192,17 @@ class DynamicNERClassifier:
         """Dynamically find product names in text"""
         text_lower = text.lower()
 
+        # Normalize the input text for better matching
+        # Remove parentheses and normalize spaces
+        normalized_text = re.sub(r"[\(\)]", " ", text_lower)
+        normalized_text = re.sub(r"\s+", " ", normalized_text).strip()
+
         # Try exact matches first
         for product_name in self.product_names:
-            if product_name in text_lower:
+            # Normalize product name for comparison
+            normalized_product = re.sub(r"\s+", " ", product_name).strip()
+
+            if normalized_product in normalized_text:
                 # Find the exact case in original text
                 start_idx = text_lower.find(product_name)
                 if start_idx != -1:
@@ -222,6 +214,30 @@ class DynamicNERClassifier:
                         end_idx = len(text)
 
                     return text[start_idx:end_idx].strip()
+
+        # Try normalized matching
+        for product_name in self.product_names:
+            normalized_product = re.sub(r"\s+", " ", product_name).strip()
+
+            if normalized_product in normalized_text:
+                # Find the closest match in original text
+                # Look for the main parts of the product name
+                product_words = normalized_product.split()
+                if len(product_words) >= 3:  # At least 3 words for a good match
+                    # Try to find the main product name part
+                    main_part = " ".join(product_words[:3])  # First 3 words
+                    if main_part in normalized_text:
+                        # Find in original text
+                        start_idx = text_lower.find(main_part)
+                        if start_idx != -1:
+                            # Extract up to the end or next punctuation
+                            end_idx = text.find("(", start_idx)
+                            if end_idx == -1:
+                                end_idx = text.find(")", start_idx)
+                            if end_idx == -1:
+                                end_idx = len(text)
+
+                            return text[start_idx:end_idx].strip()
 
         # Try fuzzy matching for partial matches
         words = text_lower.split()
@@ -433,16 +449,23 @@ class DynamicNERClassifier:
 
 # Global instance
 _dynamic_ner_classifier = None
+_initialization_lock = False
 
 
 def get_dynamic_ner_classifier() -> DynamicNERClassifier:
     """Get or create the global dynamic NER classifier instance"""
-    global _dynamic_ner_classifier
-    if _dynamic_ner_classifier is None:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        backend_dir = os.path.dirname(os.path.dirname(current_dir))
-        model_path = os.path.join(backend_dir, "trained_deberta_ner_model")
-        _dynamic_ner_classifier = DynamicNERClassifier(model_path)
+    global _dynamic_ner_classifier, _initialization_lock
+
+    if _dynamic_ner_classifier is None and not _initialization_lock:
+        _initialization_lock = True
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            backend_dir = os.path.dirname(os.path.dirname(current_dir))
+            model_path = os.path.join(backend_dir, "trained_deberta_ner_model")
+            _dynamic_ner_classifier = DynamicNERClassifier(model_path)
+        finally:
+            _initialization_lock = False
+
     return _dynamic_ner_classifier
 
 

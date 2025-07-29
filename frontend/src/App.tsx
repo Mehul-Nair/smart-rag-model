@@ -39,14 +39,28 @@ interface CategoryListData {
   message: string;
 }
 
+interface ProductDetailData {
+  type: string;
+  product_name: string;
+  details: Record<string, string>;
+  message: string;
+}
+
+interface TextResponseData {
+  type: string;
+  message: string;
+}
+
 interface Message {
   id: string;
   content:
     | string
     | ProductResponseData
+    | ProductDetailData
     | CategoryNotFoundData
     | BudgetConstraintData
     | CategoryListData
+    | TextResponseData
     | string[];
   sender: "user" | "ai";
   timestamp: Date;
@@ -117,6 +131,7 @@ function App() {
         | CategoryNotFoundData
         | BudgetConstraintData
         | CategoryListData
+        | TextResponseData
         | string[];
 
       console.log("Response type:", data.type);
@@ -160,6 +175,13 @@ function App() {
       ) {
         console.log("Processing greeting");
         parsedContent = data.response.message;
+      } else if (
+        data.type === "text" &&
+        typeof data.response === "object" &&
+        data.response.message
+      ) {
+        console.log("Processing text response");
+        parsedContent = data.response as any; // Pass the entire object for text responses
       } else if (data.type === "error") {
         // Handle error type from backend
         if (typeof data.response === "object" && data.response.message) {
