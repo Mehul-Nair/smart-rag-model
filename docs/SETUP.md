@@ -96,6 +96,11 @@ Ensure your data directory structure is correct:
 # Check data directory
 ls data/
 
+# following must be necessary
+
+## data/training/intent
+## data/training/ner
+
 # Expected files:
 # - handmade_rugs.xlsx
 # - bedside-table.xlsx
@@ -153,7 +158,7 @@ Train the intent classification model:
 
 ```bash
 # Train the model
-python train_huggingface.py
+python scripts/train_intent_model.py  --epochs 4
 ```
 
 **Expected output**:
@@ -195,7 +200,21 @@ python train_huggingface.py
 
 **Training time**: 5-10 minutes depending on your system.
 
-### Step 9: Test the Backend
+### Step 9: Train NER Model
+
+```bash
+# Train the model
+python scripts/train_ner_model.py
+```
+
+### Step 10: Convert ner model to onnx runtime..
+
+```bash
+# Train the model
+python scripts/convert_deberta_to_onnx.py
+```
+
+### Step 11: Test the Backend
 
 Verify everything is working:
 

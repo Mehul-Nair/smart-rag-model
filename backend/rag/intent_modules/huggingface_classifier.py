@@ -138,8 +138,8 @@ class HuggingFaceIntentClassifier(BaseIntentClassifier):
                 confidence = probabilities[0][predicted_class].item()
 
             # Map to intent
-            intent_name = self.intent_mapping.get(predicted_class, "INVALID")
-            intent = IntentType(intent_name.lower())
+            predicted_intent_name = self.intent_mapping.get(predicted_class, "INVALID")
+            intent = IntentType(predicted_intent_name.lower())
 
             # Update performance stats
             end_time = time.time()
@@ -161,7 +161,7 @@ class HuggingFaceIntentClassifier(BaseIntentClassifier):
                 intent=intent,
                 confidence=confidence,
                 method=self.name,
-                reasoning=f"HuggingFace model classification: {intent_name} with confidence {confidence:.3f}",
+                reasoning=f"HuggingFace model classification: {predicted_intent_name} with confidence {confidence:.3f}",
                 scores=scores,
                 processing_time=processing_time,
                 metadata={

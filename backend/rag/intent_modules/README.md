@@ -5,6 +5,7 @@ A flexible, production-ready intent classification system that supports multiple
 ## 🚀 Features
 
 - **Multiple Implementations**: OpenAI Fine-tuned Models, HuggingFace Transformers, Rule-based Classifiers
+- **Three-Tier Fallback**: Primary → Rule-based → OpenAI with intelligent confidence-based routing
 - **Hybrid Fallback**: Combine multiple classifiers with intelligent fallback strategies
 - **Easy Configuration**: Environment variables and configuration management
 - **Performance Monitoring**: Built-in performance statistics and monitoring
@@ -40,6 +41,45 @@ The system classifies user messages into these intent types:
 - **INVALID**: Unrelated topics (weather, sports, politics, etc.)
 - **META**: Legacy fallback for backward compatibility
 - **PRODUCT**: Legacy product intent for backward compatibility
+
+## 🔄 Three-Tier Fallback System
+
+The improved hybrid classifier implements a robust three-tier fallback strategy:
+
+### **Tier 1: Primary Classifier (HuggingFace)**
+
+- **Purpose**: Fast, accurate classification for most queries
+- **When Used**: When confidence ≥ threshold (default: 0.3)
+- **Performance**: ~60-80ms, high accuracy
+- **Cost**: Free
+
+### **Tier 2: Rule-based Fallback**
+
+- **Purpose**: Reliable pattern matching for edge cases
+- **When Used**: When primary confidence < threshold
+- **Performance**: ~2-5ms, medium accuracy
+- **Cost**: Free
+
+### **Tier 3: OpenAI Fallback**
+
+- **Purpose**: Handle complex, ambiguous, or novel queries
+- **When Used**: When both primary and rule-based fail
+- **Performance**: ~500-2000ms, highest accuracy
+- **Cost**: Paid (API calls)
+
+### **Fallback Logic**
+
+```python
+# Simplified flow
+if primary_confidence >= threshold:
+    return primary_result
+elif rule_based_available:
+    return rule_based_result
+elif openai_available:
+    return openai_result
+else:
+    return clarify_intent  # Last resort
+```
 
 ## 🛠️ Quick Start
 
@@ -86,14 +126,15 @@ config = {
 classifier = IntentClassifierFactory.create("huggingface", config)
 ```
 
-### Using Improved Hybrid Classifier (Recommended)
+### Using Improved Hybrid Classifier with OpenAI Fallback (Recommended)
 
 ```python
-# Create improved hybrid classifier with confidence-based fallback
+# Create improved hybrid classifier with three-tier fallback
 hybrid_config = {
     "confidence_threshold": 0.5,
     "primary_classifier": "huggingface",
     "fallback_classifier": "rule_based",
+    "openai_fallback": True,  # Enable OpenAI as third fallback
     "enable_intent_specific_rules": True,
     "implementation_configs": {
         "huggingface": {
@@ -102,11 +143,23 @@ hybrid_config = {
         },
         "rule_based": {
             "similarity_threshold": 0.5
+        },
+        "openai": {
+            "model_name": os.getenv("FINE_TUNED_MODEL_NAME"),
+            "api_key": os.getenv("OPENAI_API_KEY"),
+            "temperature": 0.0,
+            "max_tokens": 10
         }
     }
 }
 classifier = IntentClassifierFactory.create("improved_hybrid", hybrid_config)
 ```
+
+**Three-Tier Fallback Strategy:**
+
+1. **Primary**: HuggingFace (fast, accurate, free)
+2. **Fallback**: Rule-based (very fast, reliable patterns)
+3. **Third Fallback**: OpenAI (high accuracy, handles complex cases)
 
 ## ⚙️ Configuration
 
@@ -163,6 +216,7 @@ hybrid_config = config.get_hybrid_config()
 | HuggingFace    | ⚡⚡⚡⚡   | ⭐⭐⭐⭐⭐ | Free     | transformers, torch |
 | OpenAI         | ⚡⚡       | ⭐⭐⭐⭐⭐ | Paid     | openai              |
 | Hybrid         | ⚡⚡⚡⚡   | ⭐⭐⭐⭐⭐ | Variable | All above           |
+| **Three-Tier** | ⚡⚡⚡⚡   | ⭐⭐⭐⭐⭐ | Variable | All above           |
 
 ### Speed Benchmarks (per query)
 
@@ -170,6 +224,7 @@ hybrid_config = config.get_hybrid_config()
 - **HuggingFace**: ~60-80ms (PyTorch CPU)
 - **OpenAI**: ~500-2000ms
 - **Hybrid**: ~60-100ms (depends on fallback strategy)
+- **Three-Tier**: ~60-200ms (depends on which fallback is used)
 
 ## 🔧 Advanced Usage
 

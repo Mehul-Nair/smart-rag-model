@@ -10,6 +10,9 @@ from typing import Optional
 import time
 import datetime
 
+# Setup logging for intent classification
+from logging_config import setup_intent_classification_logging
+
 # Load environment variables
 load_dotenv(".env", override=True)  # override=True ensures .env takes precedence
 
@@ -27,6 +30,14 @@ async def lifespan(app: FastAPI):
     """Lifespan event handler for startup and shutdown"""
     # Startup
     print("🚀 Starting backend initialization...")
+
+    # Setup intent classification logging
+    print("📝 Setting up intent classification logging...")
+    try:
+        intent_logger = setup_intent_classification_logging()
+        print("✅ Intent classification logging setup complete")
+    except Exception as e:
+        print(f"⚠️ Intent classification logging setup failed: {e}")
 
     # Pre-initialize NER classifier for faster response times
     print("🧠 Pre-initializing NER classifier...")
@@ -251,6 +262,78 @@ async def export_analytics(time_window_minutes: Optional[int] = None):
         "filepath": filepath,
         "filename": filename,
     }
+
+
+@app.get("/logs/intent-classification")
+async def get_intent_classification_logs(
+    session_id: Optional[str] = None,
+    intent: Optional[str] = None,
+    limit: Optional[int] = 100,
+):
+    """Get intent classification logs with optional filtering"""
+    try:
+        from logging_config import get_intent_classification_logs
+        from datetime import datetime, timedelta
+
+        # Get logs from the last 24 hours by default
+        end_time = datetime.now()
+        start_time = end_time - timedelta(hours=24)
+
+        logs = get_intent_classification_logs(
+            start_time=start_time,
+            end_time=end_time,
+            session_id=session_id,
+            intent=intent,
+        )
+
+        # Limit the number of logs returned
+        if limit:
+            logs = logs[-limit:]
+
+        return {
+            "logs": logs,
+            "total_count": len(logs),
+            "time_range": {
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
+            },
+            "filters": {"session_id": session_id, "intent": intent, "limit": limit},
+        }
+    except Exception as e:
+        return {"error": f"Failed to get logs: {str(e)}"}
+
+
+@app.get("/logs/classifier-performance")
+async def get_classifier_performance_logs(limit: Optional[int] = 50):
+    """Get classifier performance logs"""
+    try:
+        from logging_config import get_intent_classification_logs
+        from datetime import datetime, timedelta
+
+        # Get logs from the last 7 days
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=7)
+
+        logs = get_intent_classification_logs(start_time=start_time, end_time=end_time)
+
+        # Filter for performance-related logs
+        performance_logs = [
+            log for log in logs if "PERFORMANCE_STATS" in log["message"]
+        ]
+
+        if limit:
+            performance_logs = performance_logs[-limit:]
+
+        return {
+            "performance_logs": performance_logs,
+            "total_count": len(performance_logs),
+            "time_range": {
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
+            },
+        }
+    except Exception as e:
+        return {"error": f"Failed to get performance logs: {str(e)}"}
 
 
 if __name__ == "__main__":

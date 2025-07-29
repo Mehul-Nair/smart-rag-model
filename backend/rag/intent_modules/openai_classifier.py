@@ -26,7 +26,6 @@ class OpenAIIntentClassifier(BaseIntentClassifier):
                 - temperature: Model temperature (default: 0)
                 - max_tokens: Max tokens for response (default: 10)
         """
-        super().__init__("openai", config)
         self.model_name = config.get("model_name") if config else None
         self.api_key = config.get("api_key") if config else None
         self.temperature = config.get("temperature", 0)
@@ -34,6 +33,8 @@ class OpenAIIntentClassifier(BaseIntentClassifier):
         self._model = None
         self._total_queries = 0
         self._total_time = 0.0
+
+        super().__init__("openai", config)
 
     def _initialize(self) -> bool:
         """Initialize the OpenAI model"""

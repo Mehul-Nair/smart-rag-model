@@ -333,6 +333,7 @@ intent_classifier = IntentClassifierFactory.create(
         "confidence_threshold": 0.3,
         "primary_classifier": "huggingface",
         "fallback_classifier": "rule_based",
+        "openai_fallback": True,  # Enable OpenAI as third fallback
         "enable_intent_specific_rules": True,
         "implementation_configs": {
             "huggingface": {
@@ -340,6 +341,12 @@ intent_classifier = IntentClassifierFactory.create(
                 "device": "cpu",
             },
             "rule_based": {"similarity_threshold": 0.3},
+            "openai": {
+                "model_name": "gpt-3.5-turbo",  # Use regular model for fallback
+                "api_key": os.getenv("OPENAI_API_KEY"),
+                "temperature": 0.0,
+                "max_tokens": 10,
+            },
         },
     },
 )
@@ -383,7 +390,7 @@ def switch_to_rule_based():
 
 
 def switch_to_improved_hybrid():
-    """Switch to improved hybrid implementation"""
+    """Switch to improved hybrid implementation with OpenAI fallback"""
     global intent_classifier
     intent_classifier = IntentClassifierFactory.create(
         "improved_hybrid",
@@ -391,6 +398,7 @@ def switch_to_improved_hybrid():
             "confidence_threshold": 0.3,
             "primary_classifier": "huggingface",
             "fallback_classifier": "rule_based",
+            "openai_fallback": True,  # Enable OpenAI as third fallback
             "enable_intent_specific_rules": True,
             "implementation_configs": {
                 "huggingface": {
@@ -398,10 +406,16 @@ def switch_to_improved_hybrid():
                     "device": "cpu",
                 },
                 "rule_based": {"similarity_threshold": 0.3},
+                "openai": {
+                    "model_name": "gpt-3.5-turbo",  # Use regular model for fallback
+                    "api_key": os.getenv("OPENAI_API_KEY"),
+                    "temperature": 0.0,
+                    "max_tokens": 10,
+                },
             },
         },
     )
-    print("✅ Switched to improved hybrid implementation")
+    print("✅ Switched to improved hybrid implementation with OpenAI fallback")
 
 
 def switch_to_hybrid():
@@ -977,6 +991,10 @@ def classify_node(state: AgentState) -> AgentState:
         # Import analytics module
         from rag.intent_modules.intent_analytics import record_classification_event
 
+        print(
+            f"[{timestamp}] 🎯 STARTING INTENT CLASSIFICATION for: '{user_message[:50]}{'...' if len(user_message) > 50 else ''}'"
+        )
+
         classification_result = intent_classifier.classify_intent(user_message)
         if classification_result is None:
             print(f"[{timestamp}] ❌ Intent classifier returned None, using fallback")
@@ -1006,6 +1024,17 @@ def classify_node(state: AgentState) -> AgentState:
             reasoning = classification_result.reasoning
             scores = classification_result.scores
             processing_time = classification_result.processing_time
+
+            # Enhanced logging for intent classification results
+            print(f"[{timestamp}] 🎉 INTENT CLASSIFICATION COMPLETE:")
+            print(
+                f"[{timestamp}]   📝 Query: '{user_message[:40]}{'...' if len(user_message) > 40 else ''}'"
+            )
+            print(f"[{timestamp}]   🎯 Intent: {intent.value}")
+            print(f"[{timestamp}]   📊 Confidence: {confidence:.3f}")
+            print(f"[{timestamp}]   🔧 Method: {method}")
+            print(f"[{timestamp}]   ⏱️  Processing Time: {processing_time*1000:.2f}ms")
+            print(f"[{timestamp}]   💭 Reasoning: {reasoning}")
 
             # Record analytics for successful classification
             record_classification_event(
@@ -1045,9 +1074,8 @@ def classify_node(state: AgentState) -> AgentState:
             pass  # Don't let analytics recording break the main flow
 
     # Trust the intent classifier completely - no overrides
-    print(f"[{timestamp}] Intent classifier result - trusting completely")
     print(
-        f"[{timestamp}] Intent: {intent}, Confidence: {confidence:.3f}, Method: {method}"
+        f"[{timestamp}] ✅ FINAL INTENT DECISION: {intent.value} (confidence: {confidence:.3f}, method: {method})"
     )
 
     # Ensure intent is properly set in state
