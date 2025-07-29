@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, Sparkles, MessageCircle } from "lucide-react";
+import { Send, Bot, Sparkles, MessageCircle, Plus, Settings, Mic } from "lucide-react";
 import ChatMessage from "./components/ChatMessage";
 import AnimatedTextarea from "./components/AnimatedTextarea";
 import TypingIndicator from "./components/TypingIndicator";
 import DarkModeToggle from "./components/DarkModeToggle";
 import { useDarkMode } from "./hooks/useDarkMode";
+import logoImage from "./assets/images/logos/BH-AP-logo.png";
+import logoImageMain from './assets/images/logos/bh-logo-main.png';
+
 
 interface Product {
   name: string;
@@ -366,111 +369,15 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col relative overflow-hidden transition-colors duration-300">
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-white">
       {/* Background Elements */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-transparent to-purple-50/20 dark:from-blue-900/20 dark:via-transparent dark:to-purple-900/20 pointer-events-none" />
+      <div className="absolute  pointer-events-none" />
 
-      {/* Animated gradient orbs */}
-      <motion.div
-        className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none"
-        animate={{
-          background: [
-            "radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 50%, transparent 100%)",
-            "radial-gradient(circle, rgba(147, 51, 234, 0.1) 0%, rgba(236, 72, 153, 0.1) 50%, transparent 100%)",
-            "radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 50%, transparent 100%)",
-          ],
-        }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
+   
 
-      <motion.div
-        className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none"
-        animate={{
-          background: [
-            "radial-gradient(circle, rgba(147, 51, 234, 0.1) 0%, rgba(236, 72, 153, 0.1) 50%, transparent 100%)",
-            "radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, rgba(59, 130, 246, 0.1) 50%, transparent 100%)",
-            "radial-gradient(circle, rgba(147, 51, 234, 0.1) 0%, rgba(236, 72, 153, 0.1) 50%, transparent 100%)",
-          ],
-        }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
-        }}
-      />
+    
 
-      {/* Dark mode animated orbs */}
-      <motion.div
-        className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none dark:block hidden"
-        animate={{
-          background: [
-            "radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(147, 51, 234, 0.2) 50%, transparent 100%)",
-            "radial-gradient(circle, rgba(147, 51, 234, 0.2) 0%, rgba(236, 72, 153, 0.2) 50%, transparent 100%)",
-            "radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(147, 51, 234, 0.2) 50%, transparent 100%)",
-          ],
-        }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      <motion.div
-        className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none dark:block hidden"
-        animate={{
-          background: [
-            "radial-gradient(circle, rgba(147, 51, 234, 0.2) 0%, rgba(236, 72, 153, 0.2) 50%, transparent 100%)",
-            "radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 100%)",
-            "radial-gradient(circle, rgba(147, 51, 234, 0.2) 0%, rgba(236, 72, 153, 0.2) 50%, transparent 100%)",
-          ],
-        }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
-        }}
-      />
-
-      {/* Additional floating elements */}
-      <motion.div
-        className="absolute top-1/3 right-1/3 w-64 h-64 rounded-full blur-2xl pointer-events-none opacity-30"
-        animate={{
-          y: [0, -20, 0],
-          x: [0, 10, 0],
-          scale: [1, 1.1, 1],
-          background: [
-            "radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 70%)",
-            "radial-gradient(circle, rgba(147, 51, 234, 0.05) 0%, transparent 70%)",
-            "radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 70%)",
-          ],
-        }}
-        transition={{
-          duration: 12,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 1,
-        }}
-      />
-
-      <motion.div
-        className="absolute bottom-1/3 left-1/3 w-48 h-48 rounded-full blur-2xl pointer-events-none opacity-20 dark:opacity-30"
-        animate={{
-          y: [0, 15, 0],
-          x: [0, -8, 0],
-          scale: [1, 0.9, 1],
-          background: [
-            "radial-gradient(circle, rgba(236, 72, 153, 0.05) 0%, transparent 70%)",
-            "radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 70%)",
-            "radial-gradient(circle, rgba(236, 72, 153, 0.05) 0%, transparent 70%)",
-          ],
-        }}
-        transition={{
-          duration: 15,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 3,
-        }}
-      />
-
+     
       {/* Header */}
       <motion.header
         initial={{ y: -20, opacity: 0 }}
@@ -478,28 +385,21 @@ function App() {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border-b border-white/20 dark:border-gray-700/20 shadow-sm relative z-10"
       >
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <motion.div
-              className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg"
-              whileHover={{ scale: 1.05, rotate: 5 }}
-              transition={{ type: "spring", stiffness: 400, damping: 10 }}
-            >
-              <Sparkles className="w-6 h-6 text-white drop-shadow-sm" />
-            </motion.div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
-                Decor Intelligence
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                Your Smart Design Assistant
-              </p>
-            </div>
+        <div className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+          <img 
+              src={logoImageMain} 
+              alt="Beautiful Homes Logo" 
+              width="135" 
+              height="40"
+              className="h-10 w-auto"
+            />
+         
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <DarkModeToggle isDark={isDark} onToggle={toggleTheme} />
             <motion.div
-              className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400"
+              className="hidden sm:flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
@@ -516,18 +416,38 @@ function App() {
       </motion.header>
 
       {/* Chat Container */}
-      <div className="flex-1 max-w-4xl mx-auto w-full px-4 py-6 relative z-10">
-        <motion.div
-          className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 dark:border-gray-700/30 h-[600px] flex flex-col relative overflow-hidden"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+      <div className="container mx-auto px-4 sm:px-4 pt-4 pb-0">
+        <div
+          className="bg-white h-[500px] sm:h-[600px] flex flex-col relative overflow-hidden border rounded-lg"
         >
           {/* Chat container background */}
           <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/10 to-white/5 dark:from-gray-700/20 dark:via-gray-700/10 dark:to-gray-700/5 pointer-events-none" />
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 relative min-h-0">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 relative min-h-0">
+            {/* Welcome Section */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-between pb-4 sm:pb-7"
+            >
+              <div className="flex flex-col items-start w-full">
+                <img
+                  src={logoImage}
+                  alt="Beautiful Homes Logo"
+                  width="60"
+                  height="75"
+                  className="sm:w-20 sm:h-25"
+                />
+                <h3 className="text-base sm:text-lg text-left font-semibold mb-2 text-gray-900 fade-up fade-up-delay-2 font-biorhyme">
+                  Welcome to Beautiful Homes AI
+                </h3>
+                <p className="text-xs sm:text-sm text-left text-gray-600 fade-up fade-up-delay-3 font-biorhyme">
+                  Ask me about home decor, furniture, materials, or get product recommendations!
+                </p>
+              </div>
+            </motion.div>
+
             <AnimatePresence mode="wait">
               {messages.map((message) => (
                 <ChatMessage
@@ -564,7 +484,7 @@ function App() {
 
           {/* Input Area */}
           <motion.div
-            className="p-6 border-t border-white/30 dark:border-gray-600/30 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm relative"
+            className="p-3 sm:p-6 border-t border-white/30 dark:border-gray-600/30 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm relative"
             animate={{
               backgroundColor: isInputFocused
                 ? isDark
@@ -576,7 +496,7 @@ function App() {
             }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
               <div className="flex-1">
                 <AnimatedTextarea
                   value={inputValue}
@@ -589,44 +509,51 @@ function App() {
                   disabled={isLoading}
                 />
               </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg self-end ${
-                  inputValue.trim() && !isLoading
-                    ? "bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl"
-                    : "bg-gray-200/80 dark:bg-gray-600/80 text-gray-400 dark:text-gray-500 cursor-not-allowed backdrop-blur-sm"
-                }`}
-              >
-                {isLoading ? (
-                  <motion.div
-                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                    animate={{ rotate: 360 }}
-                    transition={{
-                      duration: 1,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
-                  />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </motion.button>
+             
             </div>
 
-            <div className="mt-4 flex items-center justify-between">
-              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+            <div className="flex sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 justify-between items-center">
+            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                 Press Enter to send, Shift+Enter for new line
               </div>
-              <div className="flex space-x-2">
+              <div className="flex items-center justify-end space-x-2">
+                
+                  
+                
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleSendMessage}
+                  disabled={!inputValue.trim() || isLoading}
+                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg ${
+                    inputValue.trim() && !isLoading
+                      ? "bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl"
+                      : "bg-gray-200/80 dark:bg-gray-600/80 text-gray-400 dark:text-gray-500 cursor-not-allowed backdrop-blur-sm"
+                  }`}
+                >
+                  {isLoading ? (
+                    <motion.div
+                      className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full"
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 1,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
+                    />
+                  ) : (
+                    <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                  )}
+                </motion.button>
+              </div>
+             
+              {/* <div className="flex flex-wrap gap-2">
                 <motion.button
                   onClick={handleLoadingButton}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   disabled={isLoading}
-                  className={`text-xs px-3 py-1.5 rounded-xl transition-all duration-200 backdrop-blur-sm border font-medium shadow-sm ${
+                  className={`text-xs px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl transition-all duration-200 backdrop-blur-sm border font-medium shadow-sm ${
                     isLoading
                       ? "bg-gradient-to-r from-pink-500 to-orange-500 text-white border-pink-400/50 cursor-not-allowed"
                       : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-blue-400/50 hover:shadow-lg"
@@ -653,7 +580,7 @@ function App() {
                   onClick={handleTestProductResponse}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="text-xs bg-white/60 dark:bg-gray-700/60 hover:bg-white/80 dark:hover:bg-gray-700/80 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/50 dark:border-gray-600/50 font-medium shadow-sm"
+                  className="text-xs bg-white/60 dark:bg-gray-700/60 hover:bg-white/80 dark:hover:bg-gray-700/80 text-gray-600 dark:text-gray-300 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/50 dark:border-gray-600/50 font-medium shadow-sm"
                 >
                   Test Products
                 </motion.button>
@@ -661,7 +588,7 @@ function App() {
                   onClick={handleTestCategoryNotFound}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="text-xs bg-white/60 dark:bg-gray-700/60 hover:bg-white/80 dark:hover:bg-gray-700/80 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/50 dark:border-gray-600/50 font-medium shadow-sm"
+                  className="text-xs bg-white/60 dark:bg-gray-700/60 hover:bg-white/80 dark:hover:bg-gray-700/80 text-gray-600 dark:text-gray-300 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/50 dark:border-gray-600/50 font-medium shadow-sm"
                 >
                   Test Category Not Found
                 </motion.button>
@@ -669,14 +596,14 @@ function App() {
                   onClick={handleTestBudgetConstraint}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="text-xs bg-white/60 dark:bg-gray-700/60 hover:bg-white/80 dark:hover:bg-gray-700/80 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/50 dark:border-gray-600/50 font-medium shadow-sm"
+                  className="text-xs bg-white/60 dark:bg-gray-700/60 hover:bg-white/80 dark:hover:bg-gray-700/80 text-gray-600 dark:text-gray-300 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/50 dark:border-gray-600/50 font-medium shadow-sm"
                 >
                   Test Budget Constraint
                 </motion.button>
-              </div>
+              </div> */}
             </div>
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

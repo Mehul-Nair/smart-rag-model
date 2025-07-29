@@ -2,16 +2,108 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom Fonts from Assets */
+@font-face {
+  font-family: 'Biorhyme';
+  src: url('./assets/fonts/biorhyme-regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Lato Font Family from Assets */
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-Thin.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-Black.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-ThinItalic.ttf') format('truetype');
+  font-weight: 100;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-LightItalic.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('./assets/fonts/Lato-BlackItalic.ttf') format('truetype');
+  font-weight: 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+.font-biorhyme {
+  font-family: 'Biorhyme', serif !important;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
-    border: none;
-    outline: none;
   }
 
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    font-family: 'Lato', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
       "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
       "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -96,6 +188,63 @@
   .dark .glass-dark {
     @apply bg-gray-900/20 backdrop-blur-xl border border-gray-700/10;
   }
+
+  /* Enhanced textarea with animated gradient background */
+  .textarea-gradient {
+    @apply relative w-full p-4 pr-20 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/90 backdrop-blur-sm;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .textarea-gradient:focus {
+    @apply bg-white/95;
+    box-shadow: 0 10px 15px -3px rgba(147, 51, 234, 0.1), 0 4px 6px -2px rgba(147, 51, 234, 0.05);
+  }
+
+  /* Gradient border animation */
+  .gradient-border {
+    background: linear-gradient(90deg, #9333ea 0%, #f97316 25%, #eab308 50%, #10b981 75%, #9333ea 100%);
+    background-size: 200% 100%;
+    animation: gradient-shift 3s ease infinite;
+  }
+  
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .animate-gradient-shift {
+    animation: gradient-shift 4s ease infinite;
+  }
+
+  .bg-size-200 {
+    background-size: 200% 200%;
+  }
+
+  /* Fade Up Animation */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(30px);
+    animation: fadeUp 0.6s ease-out forwards;
+  }
+
+  .fade-up-delay-1 { animation-delay: 0.1s; }
+  .fade-up-delay-2 { animation-delay: 0.2s; }
+  .fade-up-delay-3 { animation-delay: 0.3s; }
+  .fade-up-delay-4 { animation-delay: 0.4s; }
+  .fade-up-delay-5 { animation-delay: 0.5s; }
+  .fade-up-delay-6 { animation-delay: 0.6s; }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 /* Custom scrollbar */
@@ -159,79 +308,12 @@
   outline: 2px solid rgba(59, 130, 246, 0.8);
 }
 
-/* Smooth transitions for all interactive elements */
+/* Smooth transitions for interactive elements */
 button,
 a,
 input,
 textarea {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border: none;
-  outline: none;
-}
-
-/* Remove default browser borders and outlines */
-input:focus,
-textarea:focus,
-button:focus {
-  border: none;
-  outline: none;
-  box-shadow: none;
-}
-
-/* Remove any default white borders */
-* {
-  border-color: transparent;
-}
-
-/* Ensure no white borders on any elements */
-*,
-*::before,
-*::after {
-  border: none;
-  outline: none;
-}
-
-/* Specific fixes for common white border issues */
-input,
-textarea,
-button,
-div {
-  border: none !important;
-  outline: none !important;
-}
-
-/* Remove any potential white borders from rounded corners */
-.rounded-2xl,
-.rounded-xl,
-.rounded-lg {
-  border: none !important;
-  outline: none !important;
-}
-
-/* Force remove all borders from textarea specifically */
-textarea {
-  border: none !important;
-  outline: none !important;
-  border-radius: 16px !important;
-  background-clip: padding-box !important;
-  -webkit-appearance: none !important;
-  -moz-appearance: none !important;
-  appearance: none !important;
-}
-
-/* Remove any potential white borders from all elements except animated borders */
-*:not([class*="motion"]) {
-  border: none !important;
-  outline: none !important;
-}
-
-/* Specific override for any remaining white borders */
-textarea:focus,
-textarea:active,
-textarea:hover {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
 }
 
 /* Improved button hover states */
@@ -243,26 +325,26 @@ button:active {
   transform: translateY(0);
 }
 
-/* Dark mode specific transitions */
+/* Dark mode transitions */
 .dark * {
   transition: background-color 0.3s ease, border-color 0.3s ease,
     color 0.3s ease;
 }
 
-/* Carousel scrollbar hiding utilities */
+/* Scrollbar hiding utilities */
 .scrollbar-hide {
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
-  scrollbar-width: none; /* Firefox */
-  overflow: -moz-scrollbars-none; /* Old Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  overflow: -moz-scrollbars-none;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Safari and Chrome */
-  width: 0; /* Remove scrollbar space */
-  background: transparent; /* Optional: just make scrollbar invisible */
+  display: none;
+  width: 0;
+  background: transparent;
 }
 
-/* Enhanced carousel styling */
+/* Carousel styling */
 .carousel-container {
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
@@ -273,31 +355,30 @@ button:active {
   flex-shrink: 0;
 }
 
-/* Prevent layout shifts during chat transitions */
+/* Chat message container */
 .chat-message-container {
   min-height: 0;
   contain: layout style paint;
 }
 
-/* Smooth transitions for all chat elements */
+/* Chat transitions */
 .chat-transition {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Prevent content jumping */
+/* Content stability */
 .content-stable {
   min-height: 0;
   overflow: hidden;
 }
 
-/* Ensure proper flex behavior */
 .flex-stable {
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
 }
 
-/* Carousel button stability */
+/* Carousel button styling */
 .carousel-button {
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -308,8 +389,7 @@ button:active {
   transform: translateZ(0) scale(1.05);
 }
 
-/* Prevent layout shifts during hover */
 .carousel-button-container {
   transform: translateZ(0);
   backface-visibility: hidden;
-}
+} 
