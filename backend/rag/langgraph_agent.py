@@ -36,35 +36,14 @@ try:
         COMPANY_NAME,
         COMPANY_BRAND,
         DEFAULT_WARRANTY_PERIOD,
-        PRODUCT_TYPE_MAPPINGS,
     )
 except ImportError:
     # Fallback to environment variables if config import fails
     COMPANY_NAME = os.getenv("COMPANY_NAME", "Asian Paints Beautiful Homes")
     COMPANY_BRAND = os.getenv("COMPANY_BRAND", "Asian Paints Beautiful Homes")
     DEFAULT_WARRANTY_PERIOD = os.getenv("DEFAULT_WARRANTY_PERIOD", "1-year")
-    PRODUCT_TYPE_MAPPINGS = {
-        "rug": "rugs",
-        "mat": "mats",
-        "curtain": "curtains",
-        "sofa": "furniture",
-        "chair": "furniture",
-        "table": "furniture",
-        "bed": "furniture",
-        "lamp": "lights",
-        "light": "lights",
-        "lighting": "lights",
-        "shower": "bath",
-        "bath": "bath",
-        "towel": "bath",
-        "furnishing": "Furnishing",  # Map to capital F version (2265 products)
-        "fabrics": "fabrics",  # Add direct mapping for fabrics
-        "fabric": "fabrics",  # Add singular form
-        "curtains": "Furnishing",  # Map curtains to Furnishing category
-        "curtain": "Furnishing",  # Singular form
-        "drapes": "Furnishing",  # Alternative term
-        "drapery": "Furnishing",  # Alternative term
-    }
+    # Dynamic product type mappings are now loaded from the retriever
+# No hardcoded mappings needed - they are generated from the dataset
 
 
 # --- Advanced Product Detail Handler ---
@@ -725,8 +704,17 @@ def prompt_for_slot(state: AgentState, slot: str) -> AgentState:
     except Exception as e:
         print(f"Error getting brand suggestions: {e}")
 
-    # Get dynamic product type suggestions from config
-    product_type_suggestions = ", ".join(PRODUCT_TYPE_MAPPINGS.values())
+    # Get dynamic product type suggestions from retriever
+    product_type_suggestions = (
+        "furniture, lights, bath, rugs, furnishing"  # Default fallback
+    )
+    retriever = state.get("retriever")
+    if retriever and hasattr(retriever, "get_product_type_mappings"):
+        mappings = retriever.get_product_type_mappings()
+        if mappings:
+            product_type_suggestions = ", ".join(
+                set(mappings.values())
+            )  # Get unique categories
 
     slot_prompts = {
         "product_type": f"What specific type of product are you looking for? (e.g., {product_type_suggestions})",
@@ -1312,29 +1300,11 @@ def retrieve_node(state: AgentState) -> AgentState:
     search_query = user_message
     if slots.get("product_type"):
         product_type = slots["product_type"]
-        # Check if we have a mapping for this product type
-        if hasattr(state, "product_type_mappings") and state.get(
-            "product_type_mappings"
-        ):
-            mapped_category = state["product_type_mappings"].get(product_type.lower())
-            if mapped_category:
-                # Use the mapped category for more targeted search
-                search_query = f"{product_type} {mapped_category}"
-                print(
-                    f"[{timestamp}] Using mapped search query: '{search_query}' (product_type: {product_type} → category: {mapped_category})"
-                )
-            else:
-                # Use the product type for more targeted search
-                search_query = f"{product_type} products"
-                print(
-                    f"[{timestamp}] Using enhanced search query: '{search_query}' (from product_type: {product_type})"
-                )
-        else:
-            # Use the product type for more targeted search
-            search_query = f"{product_type} products"
-            print(
-                f"[{timestamp}] Using enhanced search query: '{search_query}' (from product_type: {product_type})"
-            )
+        # Use the product type for more targeted search
+        search_query = f"{product_type} products"
+        print(
+            f"[{timestamp}] Using enhanced search query: '{search_query}' (from product_type: {product_type})"
+        )
 
     # Get more documents for the final response
     retrieve_start = time.time()
@@ -1350,8 +1320,6 @@ def retrieve_node(state: AgentState) -> AgentState:
     product_type_mappings = None
     if retriever and hasattr(retriever, "get_product_type_mappings"):
         product_type_mappings = retriever.get_product_type_mappings()
-    elif hasattr(state, "product_type_mappings") and state.get("product_type_mappings"):
-        product_type_mappings = state["product_type_mappings"]
 
     if slots.get("product_type") and product_type_mappings:
         product_type = slots["product_type"]
@@ -1394,12 +1362,12 @@ def retrieve_node(state: AgentState) -> AgentState:
     )
 
     # Debug: Print some sample documents to see what's being retrieved
-    # if docs:
-    #     # print(f"[{timestamp}] Sample retrieved documents:")
-    #     for i, doc in enumerate(docs[:3]):  # Show first 3 docs
-    #         print(f"[{timestamp}] Doc {i+1}: {doc.page_content[:200]}...")
-    #         if hasattr(doc, "metadata") and doc.metadata:
-    #             print(f"[{timestamp}] Doc {i+1} metadata: {doc.metadata}")
+    if docs:
+        print(f"[{timestamp}] Sample retrieved documents:")
+        for i, doc in enumerate(docs[:3]):  # Show first 3 docs
+            print(f"[{timestamp}] Doc {i+1}: {doc.page_content[:200]}...")
+            if hasattr(doc, "metadata") and doc.metadata:
+                print(f"[{timestamp}] Doc {i+1} metadata: {doc.metadata}")
 
     node_end_time = time.time()
     node_response_time = node_end_time - node_start_time
@@ -1888,7 +1856,7 @@ Response:"""
         # Get product type mappings for better category understanding
         product_type_mappings_text = ""
 
-        # Try to get mappings from retriever first (dynamic mappings)
+        # Get dynamic mappings from retriever
         retriever = state.get("retriever")
         if retriever and hasattr(retriever, "get_product_type_mappings"):
             mappings = retriever.get_product_type_mappings()
@@ -1897,23 +1865,9 @@ Response:"""
                 product_type_mappings_text = (
                     f"\nProduct Type Mappings: {', '.join(mappings_list)}\n"
                 )
-                # print(f"[{timestamp}] Dynamic product type mappings: {mappings_list}")
+                print(f"[{timestamp}] Dynamic product type mappings: {mappings_list}")
             else:
                 print(f"[{timestamp}] No dynamic product type mappings found")
-        # Fallback to state mappings
-        elif (
-            hasattr(state, "product_type_mappings")
-            or "PRODUCT_TYPE_MAPPINGS" in globals()
-        ):
-            mappings = getattr(state, "product_type_mappings", PRODUCT_TYPE_MAPPINGS)
-            if mappings:
-                mappings_list = [f"'{k}' → '{v}'" for k, v in mappings.items()]
-                product_type_mappings_text = (
-                    f"\nProduct Type Mappings: {', '.join(mappings_list)}\n"
-                )
-                print(f"[{timestamp}] Static product type mappings: {mappings_list}")
-            else:
-                print(f"[{timestamp}] No product type mappings found")
         else:
             print(f"[{timestamp}] Product type mappings not available")
 
@@ -2450,26 +2404,30 @@ def slot_processor_node(state: AgentState) -> AgentState:
             product_name = filled_slots.get("product_name", "")
             product_name_lower = product_name.lower()
 
-            # Use dynamic product type mappings from config
-            for keyword, category in PRODUCT_TYPE_MAPPINGS.items():
-                if keyword in product_name_lower:
-                    filled_slots["product_type"] = category
-                    print(
-                        f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product name"
-                    )
-                    break
-            else:
-                # If no keyword match found, try to extract from product name structure
-                if " - " in product_name:
-                    # Extract the part after the dash which might contain product type
-                    after_dash = product_name.split(" - ")[1].lower()
-                    for keyword, category in PRODUCT_TYPE_MAPPINGS.items():
-                        if keyword in after_dash:
+            # Use dynamic product type mappings from retriever
+            retriever = state.get("retriever")
+            if retriever and hasattr(retriever, "get_product_type_mappings"):
+                mappings = retriever.get_product_type_mappings()
+                if mappings:
+                    for keyword, category in mappings.items():
+                        if keyword in product_name_lower:
                             filled_slots["product_type"] = category
                             print(
-                                f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product description"
+                                f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product name"
                             )
                             break
+                    else:
+                        # If no keyword match found, try to extract from product name structure
+                        if " - " in product_name:
+                            # Extract the part after the dash which might contain product type
+                            after_dash = product_name.split(" - ")[1].lower()
+                            for keyword, category in mappings.items():
+                                if keyword in after_dash:
+                                    filled_slots["product_type"] = category
+                                    print(
+                                        f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product description"
+                                    )
+                                    break
 
         if "brand" not in filled_slots and "product_name" in filled_slots:
             # Try to extract brand from product name dynamically
@@ -2716,7 +2674,7 @@ def build_langgraph_agent(retriever, openai_api_key: str):
             "corrections": session_state["corrections"].copy(),
             "conversation_summary": session_state["conversation_summary"],
             "session_id": session_id,  # Add session_id for analytics tracking
-            "product_type_mappings": PRODUCT_TYPE_MAPPINGS,  # Add product type mappings for LLM context
+            # Remove hardcoded mappings - let the system use dynamic mappings from retriever
         }
 
         # Run the graph with strict routing

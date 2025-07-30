@@ -36,24 +36,8 @@ DEFAULT_BRANDS = [
 # Product Categories
 PRODUCT_CATEGORIES = ["furnishing", "lights", "bath", "rugs", "furniture"]
 
-# Product Type Mappings - Keywords to Category mapping
-# Order matters - more specific terms should come first
-PRODUCT_TYPE_MAPPINGS = {
-    "lamp": "lights",
-    "light": "lights",
-    "lighting": "lights",
-    "rug": "rugs",
-    "mat": "mats",
-    "curtain": "curtains",
-    "shower": "bath",
-    "bath": "bath",
-    "towel": "bath",
-    "sofa": "furniture",
-    "chair": "furniture",
-    "table": "furniture",
-    "bed": "furniture",
-    "furnishing": "furnishing",
-}
+# Product Type Mappings are now generated dynamically from the dataset
+# No hardcoded mappings needed - they are loaded from product_type_mappings.json
 
 # Warranty Information
 WARRANTY_INFO = {
@@ -74,7 +58,7 @@ def get_config() -> Dict[str, Any]:
         "max_conversation_history": MAX_CONVERSATION_HISTORY,
         "default_brands": DEFAULT_BRANDS,
         "product_categories": PRODUCT_CATEGORIES,
-        "product_type_mappings": PRODUCT_TYPE_MAPPINGS,
+        "product_type_mappings": "dynamic",  # Now loaded from dataset
         "warranty_info": WARRANTY_INFO,
     }
 
