@@ -223,6 +223,11 @@ Verify everything is working:
 python main.py
 ```
 
+```bash
+# Start the backend server for development
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
 **Expected output**:
 
 ```

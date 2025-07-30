@@ -16,13 +16,18 @@ from logging_config import setup_intent_classification_logging
 # Load environment variables
 load_dotenv(".env", override=True)  # override=True ensures .env takes precedence
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Import config after loading environment variables
+from config import get_openai_key, validate_openai_key
+
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
-if OPENAI_API_KEY is None:
+# Validate OpenAI API key
+if not validate_openai_key():
     raise ValueError(
-        "Missing OpenAI API Key. Please set OPENAI_API_KEY in your environment."
+        "Missing or invalid OpenAI API Key. Please set OPENAI_API_KEY in your environment or .env file."
     )
+
+OPENAI_API_KEY = get_openai_key()
 
 
 @asynccontextmanager

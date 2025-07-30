@@ -36,29 +36,14 @@ try:
         COMPANY_NAME,
         COMPANY_BRAND,
         DEFAULT_WARRANTY_PERIOD,
-        PRODUCT_TYPE_MAPPINGS,
     )
 except ImportError:
     # Fallback to environment variables if config import fails
     COMPANY_NAME = os.getenv("COMPANY_NAME", "Asian Paints Beautiful Homes")
     COMPANY_BRAND = os.getenv("COMPANY_BRAND", "Asian Paints Beautiful Homes")
     DEFAULT_WARRANTY_PERIOD = os.getenv("DEFAULT_WARRANTY_PERIOD", "1-year")
-    PRODUCT_TYPE_MAPPINGS = {
-        "rug": "rugs",
-        "mat": "mats",
-        "curtain": "curtains",
-        "sofa": "furniture",
-        "chair": "furniture",
-        "table": "furniture",
-        "bed": "furniture",
-        "lamp": "lights",
-        "light": "lights",
-        "lighting": "lights",
-        "shower": "bath",
-        "bath": "bath",
-        "towel": "bath",
-        "furnishing": "furnishing",
-    }
+    # Dynamic product type mappings are now loaded from the retriever
+# No hardcoded mappings needed - they are generated from the dataset
 
 
 # --- Advanced Product Detail Handler ---
@@ -324,13 +309,16 @@ def advanced_product_detail_handler(slots, retriever, llm, user_query, history=N
 # Global intent classifier instance - using hybrid approach with trained model + rule-based fallback
 import os
 
+# Import config for centralized API key management
+from config import get_openai_key
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 trained_model_path = os.path.join(current_dir, "..", "trained_deberta_model")
 
 intent_classifier = IntentClassifierFactory.create(
     "improved_hybrid",
     {
-        "confidence_threshold": 0.5,
+        "confidence_threshold": 0.7,
         "primary_classifier": "huggingface",
         "fallback_classifier": "rule_based",
         "openai_fallback": True,  # Enable OpenAI as third fallback
@@ -343,7 +331,7 @@ intent_classifier = IntentClassifierFactory.create(
             "rule_based": {"similarity_threshold": 0.3},
             "openai": {
                 "model_name": "gpt-3.5-turbo",  # Use regular model for fallback
-                "api_key": os.getenv("OPENAI_API_KEY"),
+                "api_key": get_openai_key(),
                 "temperature": 0.0,
                 "max_tokens": 10,
             },
@@ -395,7 +383,7 @@ def switch_to_improved_hybrid():
     intent_classifier = IntentClassifierFactory.create(
         "improved_hybrid",
         {
-            "confidence_threshold": 0.5,
+            "confidence_threshold": 0.7,
             "primary_classifier": "huggingface",
             "fallback_classifier": "rule_based",
             "openai_fallback": True,  # Enable OpenAI as third fallback
@@ -408,7 +396,7 @@ def switch_to_improved_hybrid():
                 "rule_based": {"similarity_threshold": 0.3},
                 "openai": {
                     "model_name": "gpt-3.5-turbo",  # Use regular model for fallback
-                    "api_key": os.getenv("OPENAI_API_KEY"),
+                    "api_key": get_openai_key(),
                     "temperature": 0.0,
                     "max_tokens": 10,
                 },
@@ -539,6 +527,8 @@ class AgentState(TypedDict, total=False):
     slot_prompt_turn: Optional[int]
     corrections: Optional[list]
     conversation_summary: Optional[str]
+    session_id: Optional[str]
+    product_type_mappings: Optional[Dict[str, str]]
 
 
 # --- Slot Templates ---
@@ -714,8 +704,17 @@ def prompt_for_slot(state: AgentState, slot: str) -> AgentState:
     except Exception as e:
         print(f"Error getting brand suggestions: {e}")
 
-    # Get dynamic product type suggestions from config
-    product_type_suggestions = ", ".join(PRODUCT_TYPE_MAPPINGS.values())
+    # Get dynamic product type suggestions from retriever
+    product_type_suggestions = (
+        "furniture, lights, bath, rugs, furnishing"  # Default fallback
+    )
+    retriever = state.get("retriever")
+    if retriever and hasattr(retriever, "get_product_type_mappings"):
+        mappings = retriever.get_product_type_mappings()
+        if mappings:
+            product_type_suggestions = ", ".join(
+                set(mappings.values())
+            )  # Get unique categories
 
     slot_prompts = {
         "product_type": f"What specific type of product are you looking for? (e.g., {product_type_suggestions})",
@@ -1295,10 +1294,65 @@ def retrieve_node(state: AgentState) -> AgentState:
     print(f"[{timestamp}] Starting retrieve_node...")
     retriever = state.get("retriever")
     user_message = state.get("user_message", "")
+    slots = state.get("slots", {})
+
+    # Build a better search query using extracted product type
+    search_query = user_message
+    if slots.get("product_type"):
+        product_type = slots["product_type"]
+        # Use the product type for more targeted search
+        search_query = f"{product_type} products"
+        print(
+            f"[{timestamp}] Using enhanced search query: '{search_query}' (from product_type: {product_type})"
+        )
 
     # Get more documents for the final response
     retrieve_start = time.time()
-    docs = retriever.retrieve(user_message, k=20) if retriever else []
+
+    # Try multiple search strategies for better results
+    all_docs = []
+
+    # Strategy 1: Original search query
+    docs1 = retriever.retrieve(search_query, k=10) if retriever else []
+    all_docs.extend(docs1)
+
+    # Strategy 2: If we have product type mappings, try searching by sub-category
+    product_type_mappings = None
+    if retriever and hasattr(retriever, "get_product_type_mappings"):
+        product_type_mappings = retriever.get_product_type_mappings()
+
+    if slots.get("product_type") and product_type_mappings:
+        product_type = slots["product_type"]
+        mapped_category = product_type_mappings.get(product_type.lower())
+        if mapped_category:
+            # Search for the product type specifically
+            sub_category_search = f"Sub Category: {product_type}"
+            docs2 = retriever.retrieve(sub_category_search, k=10) if retriever else []
+            all_docs.extend(docs2)
+            print(
+                f"[{timestamp}] Added {len(docs2)} docs from sub-category search: '{sub_category_search}'"
+            )
+
+    # Strategy 3: Search for the product type directly
+    if slots.get("product_type"):
+        product_type = slots["product_type"]
+        direct_search = f"{product_type}"
+        docs3 = retriever.retrieve(direct_search, k=10) if retriever else []
+        all_docs.extend(docs3)
+        print(
+            f"[{timestamp}] Added {len(docs3)} docs from direct search: '{direct_search}'"
+        )
+
+    # Remove duplicates based on content
+    unique_docs = []
+    seen_content = set()
+    for doc in all_docs:
+        content_hash = hash(doc.page_content)
+        if content_hash not in seen_content:
+            unique_docs.append(doc)
+            seen_content.add(content_hash)
+
+    docs = unique_docs[:20]  # Limit to 20 docs
     retrieve_end = time.time()
     retrieve_time = retrieve_end - retrieve_start
 
@@ -1306,6 +1360,14 @@ def retrieve_node(state: AgentState) -> AgentState:
     print(
         f"[{timestamp}] Retrieved {len(docs)} documents for response generation in {retrieve_time:.2f} seconds"
     )
+
+    # Debug: Print some sample documents to see what's being retrieved
+    if docs:
+        print(f"[{timestamp}] Sample retrieved documents:")
+        for i, doc in enumerate(docs[:3]):  # Show first 3 docs
+            print(f"[{timestamp}] Doc {i+1}: {doc.page_content[:200]}...")
+            if hasattr(doc, "metadata") and doc.metadata:
+                print(f"[{timestamp}] Doc {i+1} metadata: {doc.metadata}")
 
     node_end_time = time.time()
     node_response_time = node_end_time - node_start_time
@@ -1316,12 +1378,17 @@ def retrieve_node(state: AgentState) -> AgentState:
 
 
 # --- Reason Node ---
-def is_out_of_domain(user_message: str) -> bool:
+def is_out_of_domain(user_message: str, intent_confidence: float = None) -> bool:
     """Check if the message is clearly outside the home decor domain"""
     user_lower = user_message.lower().strip()
 
     # Debug: Print the message being checked
-    print(f"🔍 Checking domain for: '{user_message}'")
+    print(f"🔍 Checking domain for: '{user_message}' (confidence: {intent_confidence})")
+
+    # If we have high confidence from the ML model, trust it
+    if intent_confidence is not None and intent_confidence >= 0.5:
+        print(f"✅ High confidence ({intent_confidence:.3f}) - trusting ML model")
+        return False
 
     # Clear out-of-domain patterns (comprehensive)
     out_of_domain_patterns = [
@@ -1414,22 +1481,23 @@ def is_out_of_domain(user_message: str) -> bool:
             return True
 
     # Check for very short messages that might be unclear
-    if len(user_lower.split()) <= 1 and not any(
-        word in user_lower
-        for word in [
-            "help",
-            "hi",
-            "hello",
-            "hey",
-            "furniture",
-            "curtain",
-            "rug",
-            "light",
-            "bath",
-        ]
-    ):
-        print(f"❌ Very short unclear message: '{user_message}'")
-        return True
+    # Only reject if it's a single word AND doesn't contain any recognizable patterns
+    if len(user_lower.split()) <= 1:
+        # Allow common greetings and help words
+        if any(word in user_lower for word in ["help", "hi", "hello", "hey"]):
+            print(f"✅ Short message allowed (greeting/help): '{user_message}'")
+            return False
+
+        # Allow if it contains any letters (not just numbers/symbols)
+        if not re.search(r"[a-zA-Z]", user_lower):
+            print(f"❌ Very short unclear message (no letters): '{user_message}'")
+            return True
+
+        # For single words, let the intent classifier decide
+        # If it's a single word, it might be a room type, product type, etc.
+        # We'll let the ML model handle the classification
+        print(f"✅ Short message allowed (let ML model decide): '{user_message}'")
+        return False
 
     print(f"✅ Message is in-domain")
     return False
@@ -1512,8 +1580,9 @@ def reason_node(state: AgentState) -> AgentState:
     required_slots = state.get("required_slots", [])
     intent = state.get("intent")
 
-    # Out-of-domain filter
-    if is_out_of_domain(user_message):
+    # Out-of-domain filter with confidence consideration
+    intent_confidence = state.get("intent_confidence")
+    if is_out_of_domain(user_message, intent_confidence):
         clarification_msg = (
             "Sorry, I can only help with home decor and product-related queries."
         )
@@ -1760,11 +1829,50 @@ Response:"""
         if "size" in slots:
             user_requirements["size"] = slots["size"]
 
+        # Get available categories for category_not_found responses
+        retriever = state.get("retriever")
+        available_categories = []
+        if retriever:
+            try:
+                available_categories = get_categories(retriever, timestamp)
+            except Exception as e:
+                print(f"[{timestamp}] Error getting categories: {e}")
+                available_categories = [
+                    "furnishing",
+                    "lights",
+                    "bath",
+                    "rugs",
+                    "furniture",
+                ]  # fallback
+
         # Simplified prompt to avoid syntax issues
         summary_text = f"Conversation summary: {summary}\n" if summary else ""
         history_text = (
             f"Recent conversation:\n{recent_history}\n" if recent_history else ""
         )
+        categories_text = (
+            f"Available categories: {available_categories}\n"
+            if available_categories
+            else ""
+        )
+
+        # Get product type mappings for better category understanding
+        product_type_mappings_text = ""
+
+        # Get dynamic mappings from retriever
+        retriever = state.get("retriever")
+        if retriever and hasattr(retriever, "get_product_type_mappings"):
+            mappings = retriever.get_product_type_mappings()
+            if mappings:
+                mappings_list = [f"'{k}' → '{v}'" for k, v in mappings.items()]
+                product_type_mappings_text = (
+                    f"\nProduct Type Mappings: {', '.join(mappings_list)}\n"
+                )
+                print(f"[{timestamp}] Dynamic product type mappings: {mappings_list}")
+            else:
+                print(f"[{timestamp}] No dynamic product type mappings found")
+        else:
+            print(f"[{timestamp}] Product type mappings not available")
 
         full_prompt = f"""You are a helpful home decor assistant. Provide product suggestions based on the user's requirements.
 
@@ -1773,11 +1881,15 @@ IMPORTANT RULES:
 2. If the context doesn't contain products matching the user's requirements, be honest about it
 3. Do NOT claim to have products in specific colors/materials if they're not in the context
 4. If you can't find exact matches, suggest alternatives but clearly state what's missing
+5. ALWAYS check the context first before deciding if a category is not found
+6. If the context contains products of the requested type, suggest them regardless of category names
+7. CRITICAL: Product types are mapped to categories. When a user asks for a specific product type (like "bed"), you should look for products in the mapped category (like "furniture"). Do NOT look for the product type as a direct category.
+8. If the user asks for "bed", look in the "furniture" category. If they ask for "lamp", look in the "lights" category. If they ask for "rug", look in the "rugs" category.
 
 Available response types:
 1. product_suggestion: When you have relevant products to suggest
 2. budget_constraint: When the user's budget is too low for available products
-3. category_not_found: When the requested category doesn't exist
+3. category_not_found: When the requested category doesn't exist AND no relevant products are found in context
 4. clarification: When you need more information
 
 Response schemas:
@@ -1813,12 +1925,30 @@ For clarifications:
   "message": "Your clarification question"
 }}
 
-{summary_text}{history_text}User is looking for: {slot_str}.
+For category not found:
+{{
+  "type": "category_not_found",
+  "requested_category": "The category the user requested",
+  "available_categories": ["list", "of", "available", "categories"],
+  "message": "Explanation of what categories are available"
+}}
+
+{summary_text}{history_text}{categories_text}{product_type_mappings_text}User is looking for: {slot_str}.
 
 IMPORTANT BUDGET HANDLING:
 - If the user has specified a budget, ONLY suggest products within that budget
 - If no products are available within the budget, use budget_constraint response type
 - Always consider the budget when making suggestions
+
+CRITICAL: Check the context first! If the context contains products that match what the user is looking for, suggest them as product_suggestion, even if the category names don't exactly match. Only use category_not_found if the context is completely empty or contains no relevant products.
+
+IMPORTANT: When the user asks for a specific product type (like "bed"), the context should contain products from the mapped category (like "furniture"). Look for products in the context that match the user's request, regardless of the exact category names.
+
+SPECIFIC INSTRUCTIONS FOR BED PRODUCTS:
+- When the user asks for "bed", look for products with "Sub Category: bed" in the context
+- These bed products are typically found in the "Furniture" category
+- If you see products with "Sub Category: bed" in the context, suggest them as product_suggestion
+- Do NOT say "bed" category is not found if you see bed products in the context
 
 Use ONLY the provided context to answer. If the context does NOT contain relevant information, do NOT attempt to answer.
 If the context lacks sufficient detail, ask a clear follow-up question instead of assuming.
@@ -1842,7 +1972,9 @@ User Message:
 {user_message}
 
 Assistant:
-IMPORTANT: Reply ONLY in valid JSON as per the above schema. Do not reply in free text."""
+IMPORTANT: Reply ONLY in valid JSON as per the above schema. Do not reply in free text.
+
+DEBUG: Before responding, check if the context contains any products with "Sub Category: bed" or mentions of bed products. If it does, you MUST suggest them as product_suggestion, not category_not_found."""
         print(f"[{timestamp}] Using LLM to generate response...")
         llm_start = time.time()
         response = llm.predict(full_prompt) if llm else ""
@@ -2196,7 +2328,26 @@ def get_categories(retriever, timestamp: str) -> List[str]:
             categories = retriever.get_categories()
             if categories and len(categories) > 0:
                 print(f"[{timestamp}] ✅ Categories from direct access: {categories}")
-                return categories
+
+                # Normalize categories to remove duplicates and standardize case
+                normalized_categories = []
+                seen_lowercase = set()
+
+                for category in categories:
+                    category_lower = category.lower()
+                    if category_lower not in seen_lowercase:
+                        # Prefer the version with capital F for "furnishing"
+                        if category_lower == "furnishing":
+                            normalized_categories.append("Furnishing")
+                        else:
+                            # For other categories, use the first occurrence
+                            normalized_categories.append(category)
+                        seen_lowercase.add(category_lower)
+
+                print(
+                    f"[{timestamp}] ✅ Normalized categories: {normalized_categories}"
+                )
+                return normalized_categories
             else:
                 print(f"[{timestamp}] ⚠️ Direct access returned empty categories")
         except Exception as e:
@@ -2268,26 +2419,30 @@ def slot_processor_node(state: AgentState) -> AgentState:
             product_name = filled_slots.get("product_name", "")
             product_name_lower = product_name.lower()
 
-            # Use dynamic product type mappings from config
-            for keyword, category in PRODUCT_TYPE_MAPPINGS.items():
-                if keyword in product_name_lower:
-                    filled_slots["product_type"] = category
-                    print(
-                        f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product name"
-                    )
-                    break
-            else:
-                # If no keyword match found, try to extract from product name structure
-                if " - " in product_name:
-                    # Extract the part after the dash which might contain product type
-                    after_dash = product_name.split(" - ")[1].lower()
-                    for keyword, category in PRODUCT_TYPE_MAPPINGS.items():
-                        if keyword in after_dash:
+            # Use dynamic product type mappings from retriever
+            retriever = state.get("retriever")
+            if retriever and hasattr(retriever, "get_product_type_mappings"):
+                mappings = retriever.get_product_type_mappings()
+                if mappings:
+                    for keyword, category in mappings.items():
+                        if keyword in product_name_lower:
                             filled_slots["product_type"] = category
                             print(
-                                f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product description"
+                                f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product name"
                             )
                             break
+                    else:
+                        # If no keyword match found, try to extract from product name structure
+                        if " - " in product_name:
+                            # Extract the part after the dash which might contain product type
+                            after_dash = product_name.split(" - ")[1].lower()
+                            for keyword, category in mappings.items():
+                                if keyword in after_dash:
+                                    filled_slots["product_type"] = category
+                                    print(
+                                        f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product description"
+                                    )
+                                    break
 
         if "brand" not in filled_slots and "product_name" in filled_slots:
             # Try to extract brand from product name dynamically
@@ -2534,6 +2689,7 @@ def build_langgraph_agent(retriever, openai_api_key: str):
             "corrections": session_state["corrections"].copy(),
             "conversation_summary": session_state["conversation_summary"],
             "session_id": session_id,  # Add session_id for analytics tracking
+            # Remove hardcoded mappings - let the system use dynamic mappings from retriever
         }
 
         # Run the graph with strict routing
