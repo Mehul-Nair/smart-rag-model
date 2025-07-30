@@ -87,6 +87,9 @@ module.exports = {
                     800: '#1e40af',
                     900: '#1e3a8a',
                 },
+                custom: {
+                    purple: '#7345b2',
+                },
                 glass: {
                     light: 'rgba(255, 255, 255, 0.25)',
                     medium: 'rgba(255, 255, 255, 0.18)',

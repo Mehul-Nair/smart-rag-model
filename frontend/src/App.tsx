@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, Sparkles, MessageCircle, Plus, Settings, Mic } from "lucide-react";
+import { Send, Bot } from "lucide-react";
 import ChatMessage from "./components/ChatMessage";
 import AnimatedTextarea from "./components/AnimatedTextarea";
 import TypingIndicator from "./components/TypingIndicator";
@@ -8,12 +8,16 @@ import DarkModeToggle from "./components/DarkModeToggle";
 import { useDarkMode } from "./hooks/useDarkMode";
 import logoImage from "./assets/images/logos/BH-AP-logo.png";
 import logoImageMain from './assets/images/logos/bh-logo-main.png';
+import logoImageAP from "./assets/images/logos/asian-paint-ap-logo.png";
 
 
 interface Product {
   name: string;
   price: string;
   url: string;
+  featuredImg?: string;
+  discounted_price?: string;
+  discount_percentage?: string;
 }
 
 interface ProductResponseData {
@@ -57,14 +61,14 @@ interface TextResponseData {
 interface Message {
   id: string;
   content:
-    | string
-    | ProductResponseData
-    | ProductDetailData
-    | CategoryNotFoundData
-    | BudgetConstraintData
-    | CategoryListData
-    | TextResponseData
-    | string[];
+  | string
+  | ProductResponseData
+  | ProductDetailData
+  | CategoryNotFoundData
+  | BudgetConstraintData
+  | CategoryListData
+  | TextResponseData
+  | string[];
   sender: "user" | "ai";
   timestamp: Date;
   userQuery?: string;
@@ -209,7 +213,7 @@ function App() {
         userQuery:
           (data.type === "product_suggestion" ||
             data.type === "budget_constraint") &&
-          typeof userMessage.content === "string"
+            typeof userMessage.content === "string"
             ? userMessage.content
             : undefined,
       };
@@ -373,11 +377,11 @@ function App() {
       {/* Background Elements */}
       <div className="absolute  pointer-events-none" />
 
-   
 
-    
 
-     
+
+
+
       {/* Header */}
       <motion.header
         initial={{ y: -20, opacity: 0 }}
@@ -387,14 +391,14 @@ function App() {
       >
         <div className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2 sm:space-x-3">
-          <img 
-              src={logoImageMain} 
-              alt="Beautiful Homes Logo" 
-              width="135" 
+            <img
+              src={logoImageMain}
+              alt="Beautiful Homes Logo"
+              width="135"
               height="40"
               className="h-10 w-auto"
             />
-         
+
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
             <DarkModeToggle isDark={isDark} onToggle={toggleTheme} />
@@ -467,11 +471,19 @@ function App() {
                 className="flex items-start space-x-3 w-full"
               >
                 <motion.div
-                  className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg"
+                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg"
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
                 >
-                  <Bot className="w-4 h-4 text-white" />
+                  <div className="w-10 h-10 rounded-full p-2 flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <img
+                      src={logoImageAP}
+                      alt="Beautiful Homes Logo AP"
+                      width="60"
+                      height="75"
+                      className="sm:w-20 sm:h-25"
+                    />
+                  </div>
                 </motion.div>
                 <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-lg border border-white/50 dark:border-gray-600/50 max-w-xs lg:max-w-md">
                   <TypingIndicator />
@@ -491,8 +503,8 @@ function App() {
                   ? "rgba(55, 65, 81, 0.4)"
                   : "rgba(255, 255, 255, 0.4)"
                 : isDark
-                ? "rgba(55, 65, 81, 0.2)"
-                : "rgba(255, 255, 255, 0.2)",
+                  ? "rgba(55, 65, 81, 0.2)"
+                  : "rgba(255, 255, 255, 0.2)",
             }}
             transition={{ duration: 0.3 }}
           >
@@ -509,27 +521,26 @@ function App() {
                   disabled={isLoading}
                 />
               </div>
-             
+
             </div>
 
             <div className="flex sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 justify-between items-center">
-            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                 Press Enter to send, Shift+Enter for new line
               </div>
               <div className="flex items-center justify-end space-x-2">
-                
-                  
-                
+
+
+
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isLoading}
-                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg ${
-                    inputValue.trim() && !isLoading
+                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg ${inputValue.trim() && !isLoading
                       ? "bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-xl hover:shadow-2xl"
                       : "bg-gray-200/80 dark:bg-gray-600/80 text-gray-400 dark:text-gray-500 cursor-not-allowed backdrop-blur-sm"
-                  }`}
+                    }`}
                 >
                   {isLoading ? (
                     <motion.div
@@ -546,7 +557,7 @@ function App() {
                   )}
                 </motion.button>
               </div>
-             
+
               {/* <div className="flex flex-wrap gap-2">
                 <motion.button
                   onClick={handleLoadingButton}

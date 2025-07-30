@@ -7,11 +7,15 @@ import CategoryResponse from "./CategoryResponse";
 import CategoryNotFoundResponse from "./CategoryNotFoundResponse";
 import BudgetConstraintResponse from "./BudgetConstraintResponse";
 import WarrantyResponse from "./WarrantyResponse";
+import logoImage from "../assets/images/logos/asian-paint-ap-logo.png";
 
 interface Product {
   name: string;
   price: string;
   url: string;
+  featuredImg?: string;
+  discounted_price?: string;
+  discount_percentage?: string;
 }
 
 interface ProductResponseData {
@@ -304,10 +308,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     >
       {/* Avatar */}
       <motion.div
-        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg ${
+        className={`w-10 h-10 rounded-full p-2 flex items-center justify-center flex-shrink-0 shadow-lg ${
           isUser
-            ? "bg-gradient-to-br from-blue-500 to-purple-600"
-            : "bg-gradient-to-br from-slate-400 to-slate-600"
+            ? "bg-custom-purple"
+            : ""
         }`}
         whileHover={{ scale: 1.1, rotate: 5 }}
         transition={{ type: "spring", stiffness: 400, damping: 10 }}
@@ -315,7 +319,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         {isUser ? (
           <User className="w-4 h-4 text-white" />
         ) : (
-          <Bot className="w-4 h-4 text-white" />
+          <img
+          src={logoImage}
+          alt="Beautiful Homes Logo AP"
+          width="60"
+          height="75"
+          className="sm:w-20 sm:h-25"
+        />
+          // <Bot className="w-4 h-4 text-white" />
         )}
       </motion.div>
 
@@ -324,7 +335,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         <motion.div
           className={`inline-block px-5 py-3 rounded-2xl shadow-lg max-w-xs lg:max-w-md backdrop-blur-sm border ${
             isUser
-              ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white border-white/20"
+              ? "bg-custom-purple text-white border-white/20"
               : "bg-white/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-100 border-white/50 dark:border-gray-600/50"
           }`}
           whileHover={{ scale: 1.02, y: -2 }}

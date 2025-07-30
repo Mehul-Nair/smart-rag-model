@@ -3,11 +3,15 @@ import { motion } from "framer-motion";
 import { Bot, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import ProductCard from "./ProductCard";
 import BudgetSuggestion from "./BudgetSuggestion";
+import logoImage from "../assets/images/logos/asian-paint-ap-logo.png";
 
 interface Product {
   name: string;
   price: string;
   url: string;
+  featuredImg?: string;
+  discounted_price?: string;
+  discount_percentage?: string;
 }
 
 interface ProductResponseData {
@@ -145,17 +149,21 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="flex items-start space-x-3 chat-message-container"
+      className="flex flex-col items-start chat-message-container"
     >
       {/* Avatar */}
-      <div className="w-8 h-8 bg-gradient-to-r from-primary-400 to-primary-500 rounded-full flex items-center justify-center flex-shrink-0">
-        <Bot className="w-4 h-4 text-white" />
+      <div className="flex flex-row items-start gap-3 chat-message-container">
+      <div className="w-10 h-10 rounded-full p-2 flex items-center justify-center flex-shrink-0 shadow-lg">
+      <img
+          src={logoImage}
+          alt="Beautiful Homes Logo AP"
+          width="60"
+          height="75"
+          className="sm:w-20 sm:h-25"
+        />
       </div>
-
-      {/* Content */}
-      <div className="flex-1 flex-stable">
-        {/* Summary */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-700 mb-4">
+       {/* Summary */}
+       <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 shadow-sm border border-gray-100 dark:border-gray-700 mb-4">
           <div className="flex items-center space-x-2 mb-2">
             <Sparkles className="w-4 h-4 text-primary-500" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -166,6 +174,12 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
             {data.summary}
           </div>
         </div>
+      </div>
+     
+
+      {/* Content */}
+      <div className="flex-1 flex-stable">
+       
 
         {/* Products Display */}
         {data.products.length > 0 ? (
