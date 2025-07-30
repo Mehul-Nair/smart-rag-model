@@ -1,5 +1,9 @@
 import os
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if it exists
+load_dotenv(".env", override=True)
 
 # Company Configuration
 COMPANY_NAME = os.getenv("COMPANY_NAME", "Asian Paints Beautiful Homes")
@@ -73,3 +77,24 @@ def get_config() -> Dict[str, Any]:
         "product_type_mappings": PRODUCT_TYPE_MAPPINGS,
         "warranty_info": WARRANTY_INFO,
     }
+
+
+def validate_openai_key() -> bool:
+    """Validate that OpenAI API key is properly set"""
+    if not OPENAI_API_KEY or OPENAI_API_KEY == "your_openai_api_key_here":
+        print("❌ OPENAI_API_KEY is not properly configured!")
+        print("Please set your OpenAI API key in one of the following ways:")
+        print("1. Create a .env file in the backend directory with:")
+        print("   OPENAI_API_KEY=your_actual_api_key_here")
+        print("2. Set the environment variable:")
+        print("   Windows: set OPENAI_API_KEY=your_actual_api_key_here")
+        print("   Linux/Mac: export OPENAI_API_KEY=your_actual_api_key_here")
+        return False
+    return True
+
+
+def get_openai_key() -> str:
+    """Get OpenAI API key with validation"""
+    if not validate_openai_key():
+        raise ValueError("OpenAI API key is not properly configured")
+    return OPENAI_API_KEY

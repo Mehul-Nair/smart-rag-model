@@ -29,6 +29,7 @@ class ExcelRetriever:
         print("Looking for FAISS index at:", self.index_path)
         self.retriever = self._load_retriever()
         self.categories = self._load_categories()
+        self.product_type_mappings = self._load_product_type_mappings()
 
     def _load_retriever(self):
         embeddings = OpenAIEmbeddings(api_key=SecretStr(self.openai_api_key))
@@ -78,6 +79,26 @@ class ExcelRetriever:
         except Exception as e:
             print(f"Error extracting categories: {e}")
             return []
+
+    def _load_product_type_mappings(self):
+        """Load dynamic product type mappings from JSON file."""
+        mappings_file = os.path.join(self.index_dir, "product_type_mappings.json")
+        if os.path.exists(mappings_file):
+            try:
+                with open(mappings_file, "r") as f:
+                    mappings = json.load(f)
+                print(f"Loaded {len(mappings)} dynamic product type mappings")
+                return mappings
+            except Exception as e:
+                print(f"Error loading product type mappings: {e}")
+                return {}
+        else:
+            print("Product type mappings not found, using empty mappings")
+            return {}
+
+    def get_product_type_mappings(self):
+        """Get the loaded product type mappings."""
+        return self.product_type_mappings
 
     def retrieve(self, query: str, k: int = 3):
         return self.retriever.get_relevant_documents(query, k=k)

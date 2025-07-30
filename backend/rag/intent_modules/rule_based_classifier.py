@@ -128,6 +128,11 @@ class RuleBasedIntentClassifier(BaseIntentClassifier):
                     "show me all",
                     "list all",
                 ],
+                "category_product_patterns": [
+                    "i want * products",
+                    "show me * products",
+                    "* products",
+                ],
             },
             IntentType.BUDGET_QUERY: {
                 "budget_queries": [
@@ -299,69 +304,6 @@ class RuleBasedIntentClassifier(BaseIntentClassifier):
                     "home",
                 ],
             },
-            IntentType.INVALID: {
-                "invalid_topics": [
-                    "weather",
-                    "news",
-                    "sports",
-                    "politics",
-                    "music",
-                    "movie",
-                    "game",
-                    "cooking",
-                    "travel",
-                    "health",
-                    "fitness",
-                    "education",
-                    "work",
-                    "football",
-                    "basketball",
-                    "tennis",
-                    "baseball",
-                    "soccer",
-                    "hockey",
-                ],
-                "general_knowledge_questions": [
-                    "who is narendra",
-                    "who is modi",
-                    "who is president",
-                    "who is prime minister",
-                    "what is capital",
-                    "what is population",
-                    "what is weather",
-                    "what is stock price",
-                    "when was",
-                    "where is",
-                    "how old is",
-                    "birthday of",
-                    "capital of",
-                    "population of",
-                    "stock price of",
-                    "weather in",
-                    "current time",
-                    "what time",
-                    "what date",
-                    "today is",
-                ],
-                "person_questions": [
-                    "narendra modi",
-                    "modi",
-                    "president",
-                    "prime minister",
-                    "minister",
-                    "celebrity",
-                    "actor",
-                    "actress",
-                    "singer",
-                    "artist",
-                    "writer",
-                    "author",
-                    "scientist",
-                    "doctor",
-                    "teacher",
-                    "student",
-                ],
-            },
         }
 
     def _initialize(self) -> bool:
@@ -382,12 +324,24 @@ class RuleBasedIntentClassifier(BaseIntentClassifier):
         max_confidence = 0.0
         for category, phrases in patterns.items():
             for phrase in phrases:
-                # Exact match gets highest confidence
-                if phrase in user_lower:
-                    confidence = 1.0
+                # Handle wildcard patterns
+                if "*" in phrase:
+                    import re
+
+                    # Convert wildcard pattern to regex
+                    pattern_regex = phrase.replace("*", r"\w+")
+                    if re.search(pattern_regex, user_lower):
+                        confidence = 1.0
+                    else:
+                        # Semantic similarity for partial matches
+                        confidence = self.calculate_similarity(user_lower, phrase)
                 else:
-                    # Semantic similarity for partial matches
-                    confidence = self.calculate_similarity(user_lower, phrase)
+                    # Exact match gets highest confidence
+                    if phrase in user_lower:
+                        confidence = 1.0
+                    else:
+                        # Semantic similarity for partial matches
+                        confidence = self.calculate_similarity(user_lower, phrase)
 
                 if confidence > max_confidence:
                     max_confidence = confidence

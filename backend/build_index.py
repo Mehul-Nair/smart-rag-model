@@ -18,33 +18,23 @@ import json
 
 # Load environment variables from .env file
 load_dotenv(".env", override=True)  # override=True ensures .env takes precedence
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Import config after loading environment variables
+from config import get_openai_key, validate_openai_key
 
 # Verify API key is loaded
-if not OPENAI_API_KEY:
-    print("❌ OPENAI_API_KEY not found in .env file")
-    print("Please create a .env file in the backend directory with:")
-    print("OPENAI_API_KEY=your_actual_api_key_here")
+if not validate_openai_key():
     exit(1)
 else:
     print("✅ OpenAI API key loaded successfully")
+    OPENAI_API_KEY = get_openai_key()
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 INDEX_DIR = os.path.join(os.path.dirname(__file__), "data_source", "faiss_index")
 os.makedirs(INDEX_DIR, exist_ok=True)
 
 # Enhanced category normalization dictionary
-CATEGORY_MAP = {
-    "bedside-table": "bedside tables",
-    "handmade_rugs": "handmade rugs",
-    "handmade-rugs": "handmade rugs",
-    "fabrics": "fabrics",
-    "Furnishing": "furnishing",
-    "Lights": "lights",
-    "Bath": "bath",
-    "Rugs": "rugs",
-    "Furniture": "furniture",
-}
+# Now completely dynamic - no hardcoded mappings
 
 
 def get_all_excel_files(data_dir):
@@ -53,6 +43,23 @@ def get_all_excel_files(data_dir):
     # Filter out temporary Excel lock files (files starting with ~$)
     valid_files = [f for f in all_files if not os.path.basename(f).startswith("~$")]
     return valid_files
+
+
+def generate_product_type_mappings(df):
+    """
+    Generate product type mappings from sub_category to main_category.
+    """
+    print("🔍 Generating sub_category → main_category mappings...")
+    mappings = {}
+    if "sub_category" in df.columns and "main_category" in df.columns:
+        pairs = df[["sub_category", "main_category"]].dropna().drop_duplicates()
+        for _, row in pairs.iterrows():
+            sub = str(row["sub_category"]).strip().lower()
+            main = str(row["main_category"]).strip().lower()
+            mappings[sub] = main
+            print(f"  📝 {sub} → {main}")
+    print(f"✅ Generated {len(mappings)} sub_category → main_category mappings")
+    return mappings
 
 
 def build_faiss_index():
@@ -73,6 +80,15 @@ def build_faiss_index():
         print(f"❌ Error loading Excel file: {e}")
         return
 
+    # Generate dynamic product type mappings
+    product_type_mappings = generate_product_type_mappings(df)
+
+    # Save product type mappings to JSON file
+    mappings_file = os.path.join(INDEX_DIR, "product_type_mappings.json")
+    with open(mappings_file, "w") as f:
+        json.dump(product_type_mappings, f, indent=2)
+    print(f"💾 Product type mappings saved to: {mappings_file}")
+
     # Analyze categories in the data
     if "main_category" in df.columns:
         unique_categories = df["main_category"].unique()
@@ -83,8 +99,8 @@ def build_faiss_index():
             if pd.isna(category):
                 continue
 
-            # Normalize category name
-            normalized_category = CATEGORY_MAP.get(str(category), str(category).lower())
+            # Normalize category name (use original from dataset)
+            normalized_category = str(category).lower()
 
             # Filter data for this category
             category_df = df[df["main_category"] == category].copy()

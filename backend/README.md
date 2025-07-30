@@ -42,6 +42,10 @@ backend/
 2. **Set up environment variables:**
 
    ```bash
+   # Option 1: Use the setup script (recommended)
+   python setup_env.py
+
+   # Option 2: Create .env file manually
    # Create .env file with:
    OPENAI_API_KEY=your_openai_api_key
    ```
@@ -103,3 +107,42 @@ The HuggingFace model can be trained on custom data:
 
 cd backend
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+## 🔧 Troubleshooting
+
+### OpenAI API Key Issues
+
+If you're having issues with your OpenAI API key:
+
+1. **Check current status:**
+
+   ```bash
+   python setup_env.py
+   ```
+
+2. **Clear old system environment variable:**
+
+   ```bash
+   # Windows
+   setup_env.bat
+
+   # Or manually:
+   set OPENAI_API_KEY=
+   ```
+
+3. **Create/update .env file:**
+
+   ```bash
+   python setup_env.py
+   ```
+
+4. **Verify configuration:**
+   ```bash
+   python -c "from config import validate_openai_key; print('Valid' if validate_openai_key() else 'Invalid')"
+   ```
+
+### Common Issues
+
+- **Old API key showing**: Clear system environment variable and use .env file
+- **Key not found**: Make sure .env file exists in backend directory
+- **Permission errors**: Run terminal as administrator (Windows)
