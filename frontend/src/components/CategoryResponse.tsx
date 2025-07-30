@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Bot } from "lucide-react";
 import CategoryChips from "./CategoryChips";
+import logoImage from "../assets/images/logos/asian-paint-ap-logo.png";
 
 interface CategoryResponseProps {
   categories: string[];
@@ -23,8 +24,14 @@ const CategoryResponse: React.FC<CategoryResponseProps> = ({
       className="flex items-start space-x-3"
     >
       {/* Avatar */}
-      <div className="w-8 h-8 bg-gradient-to-r from-primary-400 to-primary-500 rounded-full flex items-center justify-center flex-shrink-0">
-        <Bot className="w-4 h-4 text-white" />
+      <div className="w-10 h-10 rounded-full p-2 flex items-center justify-center flex-shrink-0 shadow-lg">
+      <img
+          src={logoImage}
+          alt="Beautiful Homes Logo AP"
+          width="60"
+          height="75"
+          className="sm:w-20 sm:h-25"
+        />
       </div>
 
       {/* Content */}

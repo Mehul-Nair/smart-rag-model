@@ -69,6 +69,7 @@ def build_faiss_index():
     try:
         df = pd.read_excel(excel_file)
         print(f"✅ Loaded {len(df)} rows from Excel file")
+        # print(f"📋 Available columns: {list(df.columns)}")
     except Exception as e:
         print(f"❌ Error loading Excel file: {e}")
         return
@@ -138,6 +139,10 @@ def build_faiss_index():
                     content_parts.append(
                         f"Detailed Description: {row['detailed_product_description']}"
                     )
+                
+                # Product image
+                if "featuredImg" in row and pd.notna(row["featuredImg"]):
+                    content_parts.append(f"Product Image: {row['featuredImg']}")
 
                 # Category information
                 if "main_category" in row and pd.notna(row["main_category"]):
@@ -168,6 +173,19 @@ def build_faiss_index():
                     content_parts.append(f"Price: {row['mrp']}")
                 if "discounted_price" in row and pd.notna(row["discounted_price"]):
                     content_parts.append(f"Discounted Price: {row['discounted_price']}")
+                
+                # Calculate and add discount percentage to content
+                if (pd.notna(row.get("mrp")) and pd.notna(row.get("discounted_price")) and 
+                    float(str(row.get("mrp", 0) or 0).replace(",", "")) > 0 and 
+                    float(str(row.get("discounted_price", 0) or 0).replace(",", "")) > 0):
+                    discount_pct = round(
+                        ((float(str(row.get("mrp", 0) or 0).replace(",", "")) - float(str(row.get("discounted_price", 0) or 0).replace(",", ""))) / float(str(row.get("mrp", 1) or 1).replace(",", ""))) * 100
+                    )
+                    content_parts.append(f"Discount Percentage: {discount_pct}%")
+                
+                # Add URL to content
+                if "url" in row and pd.notna(row["url"]):
+                    content_parts.append(f"Product URL: {row['url']}")
 
                 # Warranty and care information
                 if "warranty" in row and pd.notna(row["warranty"]):
@@ -205,6 +223,7 @@ def build_faiss_index():
                         "title": str(row.get("title", "")),
                         "price": str(row.get("mrp", "")),
                         "url": str(row.get("url", "")),
+                        "product_image": str(row.get("featuredImg", "")),
                         "warranty": str(row.get("warranty", "")),
                         "brand_name": str(row.get("brand_name", "")),
                         "primary_material": str(row.get("primary_material", "")),
@@ -220,6 +239,12 @@ def build_faiss_index():
                             row.get("instructions_for_care", "")
                         ),
                         "discounted_price": str(row.get("discounted_price", "")),
+                        "discount_percentage": str(
+                            round(
+                                ((float(str(row.get("mrp", 0) or 0).replace(",", "")) - float(str(row.get("discounted_price", 0) or 0).replace(",", ""))) / float(str(row.get("mrp", 1) or 1).replace(",", ""))) * 100
+                            ) if (pd.notna(row.get("mrp")) and pd.notna(row.get("discounted_price")) and 
+                                  float(str(row.get("mrp", 0) or 0).replace(",", "")) > 0 and float(str(row.get("discounted_price", 0) or 0).replace(",", "")) > 0) else "0"
+                        ),
                         "detailed_product_description": str(
                             row.get("detailed_product_description", "")
                         ),

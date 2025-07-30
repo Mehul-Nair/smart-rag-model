@@ -106,7 +106,7 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
               onBlur={handleBlur}
               placeholder={placeholder}
               disabled={disabled}
-              className={`w-full min-h-[52px] max-h-32 px-5 py-4 bg-transparent rounded-2xl resize-none transition-all duration-300 relative z-10 ${
+              className={`w-full min-h-[52px] max-h-32 px-5 py-4 bg-transparent rounded-2xl resize-none transition-all duration-300 relative z-10 border-2 border-gray-300 dark:border-gray-600 ${
                 disabled ? "cursor-not-allowed opacity-60" : "cursor-text"
               } ${
                 isLoading
@@ -116,7 +116,6 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
               style={{
                 fontFamily: "inherit",
                 lineHeight: "1.5",
-                border: "none",
                 outline: "none",
                 boxShadow: "none",
               }}
@@ -125,7 +124,7 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
         </div>
 
         {/* Smart indicator */}
-        <AnimatePresence>
+        {/* <AnimatePresence>
           {(isLoading || isFocused) && (
             <motion.div
               initial={{ opacity: 0, scale: 0.8, y: 10 }}
@@ -156,7 +155,7 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
               )}
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresence> */}
       </div>
     );
   }

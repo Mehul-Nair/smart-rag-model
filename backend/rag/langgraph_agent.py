@@ -1724,7 +1724,7 @@ Response:"""
         "\n"
         "Response schemas:\n"
         "For product suggestions:\n"
-        '{{\n  "type": "product_suggestion",\n  "summary": "Brief summary of what you found",\n  "products": [\n    {{\n      "name": "Product Name",\n      "category": "Product Category",\n      "price": "Price",\n      "description": "Brief description"\n    }}\n  ]\n}}\n'
+        '{{\n  "type": "product_suggestion",\n  "summary": "Brief summary of what you found",\n  "products": [\n    {{\n      "name": "Product Name",\n      "category": "Product Category",\n      "price": "Price",\n      "discounted_price": "Discounted Price",\n      "discount_percentage": "Discount Percentage",\n      "description": "Brief description",\n      "featuredImg": "Product Image URL",\n      "url": "Product URL"\n    }}\n  ]\n}}\n'
         "\n"
         "For budget constraints:\n"
         '{{\n  "type": "budget_constraint",\n  "category": "Product category",\n  "requested_budget": "User\'s budget",\n  "message": "Explanation of budget constraint"\n}}\n'
@@ -1741,6 +1741,9 @@ Response:"""
         "IMPORTANT: The user is asking about home decor products. Focus on providing helpful product suggestions based on the context.\n"
         "If you find relevant products in the context, suggest them. If the budget is too low, explain the budget constraint.\n"
         "Only ask for clarification if you genuinely need more information to provide a good suggestion.\n"
+        "\n"
+        "IMPORTANT: When extracting product information from the context, make sure to include the featuredImg (Product Image URL) if available in the context.\n"
+        "The context may contain 'Product Image: [URL]' information that should be extracted as featuredImg.\n"
         "\n"
         "Context:\n{context}\n\n"
         "User Message:\n{user_message}\n\n"
@@ -1787,7 +1790,11 @@ For product suggestions:
       "name": "Product Name",
       "category": "Product Category",
       "price": "Price",
-      "description": "Brief description"
+      "discounted_price": "Discounted Price",
+      "discount_percentage": "Discount Percentage",
+      "description": "Brief description",
+      "featuredImg": "Product Image URL",
+      "url": "Product URL"
     }}
   ]
 }}
@@ -1819,6 +1826,14 @@ If the context lacks sufficient detail, ask a clear follow-up question instead o
 IMPORTANT: The user is asking about home decor products. Focus on providing helpful product suggestions based on the context.
 If you find relevant products in the context, suggest them. If the budget is too low, explain the budget constraint.
 Only ask for clarification if you genuinely need more information to provide a good suggestion.
+
+IMPORTANT: When extracting product information from the context, make sure to include the featuredImg (Product Image URL) if available in the context.
+The context may contain 'Product Image: [URL]' information that should be extracted as featuredImg.
+
+IMPORTANT: When extracting product information from the context, make sure to include the discounted_price, discount_percentage, and url if available in the context.
+The context may contain 'Discounted Price: [PRICE]' information that should be extracted as discounted_price.
+The context may contain discount_percentage information that should be extracted as discount_percentage.
+The context may contain 'Product URL: [URL]' information that should be extracted as url.
 
 Context:
 {context}
