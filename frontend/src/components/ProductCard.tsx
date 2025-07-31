@@ -33,16 +33,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
         scale: 1.02,
         transition: { type: "spring", stiffness: 400, damping: 25 },
       }}
-      className="bg-white rounded-lg shadow-sm border border-gray-200 group w-full relative max-w-sm"
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 group w-full relative max-w-sm"
     >
              {/* Heart Icon */}
        <div className="absolute top-3 right-3 z-10">
          <motion.button
            whileHover={{ scale: 1.1 }}
            whileTap={{ scale: 0.9 }}
-           className="w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full border border-gray-200 flex items-center justify-center hover:bg-white transition-colors duration-200"
+           className="w-8 h-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center hover:bg-white dark:hover:bg-gray-700 transition-colors duration-200"
          >
-           <Heart className="w-4 h-4 text-gray-400 hover:text-red-500 transition-colors duration-200" />
+           <Heart className="w-4 h-4 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors duration-200" />
          </motion.button>
        </div>
 
@@ -56,7 +56,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
         )}
 
       {/* Product Image */}
-      <div className="h-48 bg-gray-100 flex items-center justify-center relative overflow-hidden rounded-t-lg">
+      <div className="h-48 bg-gray-100 dark:bg-gray-700 flex items-center justify-center relative overflow-hidden rounded-t-lg">
         {product.featuredImg ? (
           <img
             src={`https://www.beautifulhomes.asianpaints.com${product.featuredImg}`}
@@ -73,10 +73,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
         
         {/* Fallback Placeholder */}
         <div className={`text-center z-10 ${product.featuredImg ? 'hidden' : ''}`}>
-          <div className="w-16 h-16 bg-gray-300 rounded-lg flex items-center justify-center mx-auto mb-3">
-            <Image className="w-8 h-8 text-gray-500" />
+          <div className="w-16 h-16 bg-gray-300 dark:bg-gray-600 rounded-lg flex items-center justify-center mx-auto mb-3">
+            <Image className="w-8 h-8 text-gray-500 dark:text-gray-400" />
           </div>
-          <p className="text-sm text-gray-500 font-medium">
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
             Product Image
           </p>
         </div>
@@ -85,12 +85,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
       {/* Product Info */}
       <div className="p-3">
         {/* Product Name */}
-        <h3 className="font-semibold text-gray-900 text-sm leading-tight mb-1 group-hover:text-blue-600 transition-colors duration-200">
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-tight mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
           {product.name}
         </h3>
         
         {/* Product Description */}
-        <p className="text-xs text-gray-500 mb-2 line-clamp-2">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">
           Bronx furniture embodies sophisticated design with premium quality materials...
         </p>
 
@@ -98,7 +98,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
          <div className="flex items-center justify-between mb-2">
                        <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-gray-900">
+                <span className="text-base font-bold text-gray-900 dark:text-gray-100">
                   ₹{product.discounted_price || product.price}
                 </span>
                 {/* {product.discount_percentage && (
@@ -108,7 +108,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
                 )} */}
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-400 line-through">
+                <span className="text-xs text-gray-400 dark:text-gray-500 line-through">
                   MRP ₹{product.price}
                 </span>
               </div>
@@ -121,7 +121,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
              rel="noopener noreferrer"
              whileHover={{ scale: 1.05 }}
              whileTap={{ scale: 0.95 }}
-             className="w-10 h-10 bg-white border border-gray-300 rounded-full flex items-center justify-center hover:border-gray-400 transition-colors duration-200"
+             className="w-10 h-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors duration-200"
            >
              <span className="text-purple-600 text-xl font-bold">+</span>
            </motion.a>

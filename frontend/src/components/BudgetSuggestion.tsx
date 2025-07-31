@@ -51,11 +51,11 @@ const BudgetSuggestion: React.FC<BudgetSuggestionProps> = ({
               whileHover={{ scale: 1.05, y: -1 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onBudgetSelect(`under ${newBudget}`)}
-                             className="flex items-center space-x-2 px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-600 rounded-lg text-sm font-medium text-black hover:bg-blue-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                             className="flex items-center space-x-2 px-3 py-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-600 rounded-lg text-sm font-medium text-black dark:text-white hover:bg-blue-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
              >
-               <IndianRupee className="w-3 h-3 text-black" />
-               <span className="text-black">{suggestion.label}</span>
-               <span className="text-xs text-black">
+               <IndianRupee className="w-3 h-3 text-black dark:text-white" />
+               <span className="text-black dark:text-white">{suggestion.label}</span>
+               <span className="text-xs text-black dark:text-white">
                  ({newBudget.toLocaleString()})
                </span>
             </motion.button>

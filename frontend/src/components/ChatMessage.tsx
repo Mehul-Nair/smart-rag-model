@@ -439,13 +439,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
            transition={{ duration: 0.2 }}
            className="flex space-x-2 flex-shrink-0"
          >
-          <button
+          {/* <button
             onClick={handleEdit}
             className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
             title="Edit message"
           >
             <Edit className="w-3.5 h-3.5" />
-          </button>
+          </button> */}
           <button
             onClick={handleCopy}
             className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"

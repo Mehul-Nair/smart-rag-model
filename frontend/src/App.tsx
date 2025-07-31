@@ -373,7 +373,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden bg-white">
+    <div className={`min-h-screen flex flex-col relative overflow-hidden ${isDark ? 'dark' : ''}`}>
       {/* Background Elements */}
       <div className="absolute  pointer-events-none" />
 
@@ -422,10 +422,10 @@ function App() {
       {/* Chat Container */}
       <div className="container mx-auto px-4 sm:px-4 pt-4 pb-0">
         <div
-          className="bg-white h-[500px] sm:h-[600px] flex flex-col relative overflow-hidden border rounded-lg"
+          className="bg-white dark:bg-gray-900 h-[500px] sm:h-[600px] flex flex-col relative overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg"
         >
           {/* Chat container background */}
-          <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/10 to-white/5 dark:from-gray-700/20 dark:via-gray-700/10 dark:to-gray-700/5 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/10 to-white/5 dark:from-gray-800/20 dark:via-gray-800/10 dark:to-gray-800/5 pointer-events-none" />
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 relative min-h-0">
@@ -443,10 +443,10 @@ function App() {
                   height="75"
                   className="sm:w-20 sm:h-25"
                 />
-                <h3 className="text-base sm:text-lg text-left font-semibold mb-2 text-gray-900 fade-up fade-up-delay-2 font-biorhyme">
+                <h3 className="text-base sm:text-lg text-left font-semibold mb-2 text-gray-900 dark:text-gray-100 fade-up fade-up-delay-2 font-biorhyme">
                   Welcome to Beautiful Homes AI
                 </h3>
-                <p className="text-xs sm:text-sm text-left text-gray-600 fade-up fade-up-delay-3 font-biorhyme">
+                <p className="text-xs sm:text-sm text-left text-gray-600 dark:text-gray-300 fade-up fade-up-delay-3 font-biorhyme">
                   Ask me about home decor, furniture, materials, or get product recommendations!
                 </p>
               </div>
