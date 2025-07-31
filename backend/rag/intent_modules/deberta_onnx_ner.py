@@ -18,13 +18,13 @@ class DeBERTaONNXNER:
     def __init__(self, model_path: str, onnx_path: str):
         self.model_path = model_path
         self.onnx_path = onnx_path
-
+        
         # Load tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-
+        
         # Load ONNX session
         self.session = ort.InferenceSession(onnx_path)
-
+        
         # Load label mapping
         with open(f"{model_path}/label_mapping.json", "r") as f:
             self.label2id = json.load(f)
@@ -41,17 +41,17 @@ class DeBERTaONNXNER:
             max_length=max_length,
         )
 
-        # Run inference - use correct data types as expected by ONNX model
+        # Run inference
         onnx_inputs = {
-            "input_ids": inputs["input_ids"].astype(np.int64),
-            "attention_mask": inputs["attention_mask"].astype(np.float32),
+            "input_ids": inputs["input_ids"],
+            "attention_mask": inputs["attention_mask"],
         }
         outputs = self.session.run(None, onnx_inputs)
         logits = outputs[0]
 
         # Get predictions
         predictions = np.argmax(logits, axis=2)
-
+        
         # Convert to labels
         tokens = self.tokenizer.convert_ids_to_tokens(inputs["input_ids"][0])
         labels = [self.id2label.get(pred, "O") for pred in predictions[0]]
@@ -59,16 +59,16 @@ class DeBERTaONNXNER:
         # Extract entities
         entities = []
         current_entity = None
-
+        
         for i, (token, label) in enumerate(zip(tokens, labels)):
             if token in ["[CLS]", "[SEP]", "[PAD]"]:
                 continue
-
+                
             if label.startswith("B-"):
                 # Save previous entity if exists
                 if current_entity:
                     entities.append(current_entity)
-
+                
                 # Start new entity
                 entity_type = label[2:]
                 current_entity = {
@@ -104,9 +104,7 @@ class DeBERTaONNXNER:
 
         return entities
 
-    def predict_batch(
-        self, texts: List[str], max_length: int = 128
-    ) -> List[List[Dict[str, Any]]]:
+    def predict_batch(self, texts: List[str], max_length: int = 128) -> List[List[Dict[str, Any]]]:
         """Predict entities for multiple texts"""
         return [self.predict(text, max_length) for text in texts]
 
@@ -116,12 +114,12 @@ if __name__ == "__main__":
     # Initialize the model
     ner_model = DeBERTaONNXNER(
         model_path="trained_deberta_ner_model",
-        onnx_path="trained_deberta_ner_model/model.onnx",
+        onnx_path="trained_deberta_ner_model/model.onnx"
     )
-
+    
     # Test with sample text
     test_text = "I want a blue leather sofa from IKEA"
     entities = ner_model.predict(test_text)
-
+    
     print(f"Text: {test_text}")
     print(f"Entities: {entities}")

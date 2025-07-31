@@ -1148,6 +1148,26 @@ def classify_node(state: AgentState) -> AgentState:
                     "CATEGORY": "category",
                 }
 
+                # Smart NER validation: Filter out generic reference words that NER incorrectly classifies
+                # Only for reference intents, and only if the extracted "product type" is actually a reference word
+                if (
+                    intent in [IntentType.WARRANTY_QUERY, IntentType.PRODUCT_DETAIL]
+                    and "PRODUCT_TYPE" in extracted_slots
+                ):
+                    extracted_product = extracted_slots["PRODUCT_TYPE"].lower().strip()
+                    # These are reference words, not actual product types
+                    reference_words = {"product", "item", "thing", "stuff", "object"}
+
+                    if extracted_product in reference_words:
+                        print(
+                            f"[{timestamp}] Reference intent with generic word '{extracted_product}' detected - ignoring NER extraction"
+                        )
+                        extracted_slots.pop("PRODUCT_TYPE", None)
+                    else:
+                        print(
+                            f"[{timestamp}] Reference intent but legitimate product type '{extracted_product}' detected - keeping extraction"
+                        )
+
                 # Check if product_type is changing and clear irrelevant slots
                 new_product_type = None
                 if "PRODUCT_TYPE" in extracted_slots:
@@ -1347,7 +1367,7 @@ def retrieve_node(state: AgentState) -> AgentState:
     all_docs = []
 
     # Strategy 1: Original search query
-    docs1 = retriever.retrieve(search_query, k=10) if retriever else []
+    docs1 = retriever.retrieve(search_query, k=5) if retriever else []
     all_docs.extend(docs1)
 
     # Strategy 2: If we have product type mappings, try searching by sub-category
@@ -1361,7 +1381,7 @@ def retrieve_node(state: AgentState) -> AgentState:
         if mapped_category:
             # Search for the product type specifically
             sub_category_search = f"Sub Category: {product_type}"
-            docs2 = retriever.retrieve(sub_category_search, k=10) if retriever else []
+            docs2 = retriever.retrieve(sub_category_search, k=3) if retriever else []
             all_docs.extend(docs2)
             print(
                 f"[{timestamp}] Added {len(docs2)} docs from sub-category search: '{sub_category_search}'"
@@ -1371,7 +1391,7 @@ def retrieve_node(state: AgentState) -> AgentState:
     if slots.get("product_type"):
         product_type = slots["product_type"]
         direct_search = f"{product_type}"
-        docs3 = retriever.retrieve(direct_search, k=10) if retriever else []
+        docs3 = retriever.retrieve(direct_search, k=3) if retriever else []
         all_docs.extend(docs3)
         print(
             f"[{timestamp}] Added {len(docs3)} docs from direct search: '{direct_search}'"
@@ -1386,7 +1406,7 @@ def retrieve_node(state: AgentState) -> AgentState:
             unique_docs.append(doc)
             seen_content.add(content_hash)
 
-    docs = unique_docs[:5]  # Limit to 5 docs for faster processing
+    docs = unique_docs[:3]  # Limit to 3 docs for faster processing
     retrieve_end = time.time()
     retrieve_time = retrieve_end - retrieve_start
 
@@ -1810,124 +1830,28 @@ Response:"""
     # Use conversation summary if available
     summary = maybe_summarize_conversation(state, llm)
     context = "\n".join([doc.page_content for doc in docs])
-    # Include recent message history (last 5 turns)
+    # Include recent message history (last 2 turns for even faster processing)
     history = state.get("conversation_history", [])
     recent_history = "\n".join(
-        [f"{turn['role']}: {turn['message']}" for turn in history[-5:]]
+        [f"{turn['role']}: {turn['message']}" for turn in history[-2:]]
     )
     # Build prompt using slots, summary, and recent history
     slot_str = ", ".join([f"{k}: {v}" for k, v in slots.items()])
-    prompt = (
-        "You are a helpful home decor assistant. Provide product suggestions based on the user's requirements.\n"
-        "Available response types:\n"
-        "1. product_suggestion: When you have relevant products to suggest\n"
-        "2. budget_constraint: When the user's budget is too low for available products\n"
-        "3. category_not_found: When the requested category doesn't exist\n"
-        "4. clarification: When you need more information\n"
-        "\n"
-        "Response schemas:\n"
-        "For product suggestions:\n"
-        '{{\n  "type": "product_suggestion",\n  "summary": "Brief summary of what you found",\n  "products": [\n    {{\n      "name": "Product Name",\n      "category": "Product Category",\n      "price": "Price",\n      "discounted_price": "Discounted Price",\n      "discount_percentage": "Discount Percentage",\n      "description": "Brief description",\n      "featuredImg": "Product Image URL",\n      "url": "Product URL"\n    }}\n  ]\n}}\n'
-        "\n"
-        "For budget constraints:\n"
-        '{{\n  "type": "budget_constraint",\n  "category": "Product category",\n  "requested_budget": "User\'s budget",\n  "message": "Explanation of budget constraint"\n}}\n'
-        "\n"
-        "For clarifications:\n"
-        '{{\n  "type": "clarification",\n  "message": "Your clarification question"\n}}\n'
-        "\n"
-        + (f"Conversation summary: {summary}\n" if summary else "")
-        + (f"Recent conversation:\n{recent_history}\n" if recent_history else "")
-        + f"User is looking for: {slot_str}.\n"
-        "Use ONLY the provided context to answer. If the context does NOT contain relevant information, do NOT attempt to answer.\n"
-        "If the context lacks sufficient detail, ask a clear follow-up question instead of assuming.\n"
-        "\n"
-        "IMPORTANT: The user is asking about home decor products. Focus on providing helpful product suggestions based on the context.\n"
-        "If you find relevant products in the context, suggest them. If the budget is too low, explain the budget constraint.\n"
-        "Only ask for clarification if you genuinely need more information to provide a good suggestion.\n"
-        "\n"
-        "IMPORTANT: When extracting product information from the context, make sure to include the featuredImg (Product Image URL) if available in the context.\n"
-        "The context may contain 'Product Image: [URL]' information that should be extracted as featuredImg.\n"
-        "\n"
-        "Context:\n{context}\n\n"
-        "User Message:\n{user_message}\n\n"
-        "Assistant:\n"
-        "IMPORTANT: Reply ONLY in valid JSON as per the above schema. Do not reply in free text."
-    )
-    try:
-        # Extract user requirements from slots for validation
-        user_requirements = {}
-        if "color" in slots:
-            user_requirements["color"] = slots["color"]
-        if "material" in slots:
-            user_requirements["material"] = slots["material"]
-        if "size" in slots:
-            user_requirements["size"] = slots["size"]
 
-        # Get available categories for category_not_found responses
-        retriever = state.get("retriever")
-        available_categories = []
-        if retriever:
-            try:
-                available_categories = get_categories(retriever, timestamp)
-            except Exception as e:
-                print(f"[{timestamp}] Error getting categories: {e}")
-                available_categories = [
-                    "furnishing",
-                    "lights",
-                    "bath",
-                    "rugs",
-                    "furniture",
-                ]  # fallback
+    # Enhanced prompt with all required fields for UI card display
+    simple_prompt = f"""Extract product information from the context and format as JSON with all required fields for UI display.
 
-        # Simplified prompt to avoid syntax issues
-        summary_text = f"Conversation summary: {summary}\n" if summary else ""
-        history_text = (
-            f"Recent conversation:\n{recent_history}\n" if recent_history else ""
-        )
-        categories_text = (
-            f"Available categories: {available_categories}\n"
-            if available_categories
-            else ""
-        )
-
-        # Get product type mappings for better category understanding
-        product_type_mappings_text = ""
-
-        # Get dynamic mappings from retriever
-        retriever = state.get("retriever")
-        if retriever and hasattr(retriever, "get_product_type_mappings"):
-            mappings = retriever.get_product_type_mappings()
-            if mappings:
-                mappings_list = [f"'{k}' → '{v}'" for k, v in mappings.items()]
-                product_type_mappings_text = (
-                    f"\nProduct Type Mappings: {', '.join(mappings_list)}\n"
-                )
-                print(f"[{timestamp}] Dynamic product type mappings: {mappings_list}")
-            else:
-                print(f"[{timestamp}] No dynamic product type mappings found")
-        else:
-            print(f"[{timestamp}] Product type mappings not available")
-
-            # Use LLM with simple prompt for better field extraction
-        import json
-
-        # Create a simple prompt for LLM
-        context = "\n".join([doc.page_content for doc in docs])
-
-        simple_prompt = f"""Extract product information from the context and format as JSON.
-
+IMPORTANT: Return ONLY valid JSON in this exact format:
 {{
   "type": "product_suggestion",
   "summary": "Product suggestions",
   "products": [
     {{
       "name": "Product Name",
-      "category": "Product Category", 
-      "price": "Price",
+      "price": "Original Price (MRP)",
       "discounted_price": "Discounted Price",
-      "discount_percentage": "Discount Percentage",
       "description": "Brief description",
-      "featuredImg": "Product Image URL",
+      "featuredImg": "Image URL",
       "url": "Product URL"
     }}
   ]
@@ -1936,91 +1860,120 @@ Response:"""
 Context:
 {context}
 
-JSON:"""
+Return ONLY the JSON:"""
 
-        print(f"[{timestamp}] Using LLM with simple prompt for field extraction...")
-        llm_start = time.time()
-        response = llm.predict(simple_prompt) if llm else ""
-        llm_end = time.time()
-        llm_time = llm_end - llm_start
-        print(f"[{timestamp}] LLM response generation time: {llm_time:.2f} seconds")
-        print(f"[{timestamp}] Raw LLM response: {response}")
+    print(f"[{timestamp}] Using simplified prompt for faster processing...")
+    llm_start = time.time()
 
-        # Parse the response to count products
-        try:
-            response_data = json.loads(response)
-            if (
-                response_data.get("type") == "product_suggestion"
-                and "products" in response_data
-            ):
-                products_count = len(response_data["products"])
-                print(f"[{timestamp}] Found {products_count} products from LLM parsing")
-            else:
-                print(f"[{timestamp}] No products found in LLM response")
-        except Exception as e:
-            print(f"[{timestamp}] Error parsing LLM response: {e}")
+    # Add timeout handling for LLM call
+    try:
+        import signal
+        import threading
 
-        # Validate the response against user requirements
-        try:
-            import json
+        # Set a timeout for the LLM call
+        response = None
+        llm_error = None
 
-            response_data = json.loads(response)
-            if (
-                response_data.get("type") == "product_suggestion"
-                and "products" in response_data
-            ):
-                products = response_data["products"]
-                matching_products, missing_requirements = (
-                    validate_products_against_requirements(products, user_requirements)
-                )
+        def llm_call():
+            nonlocal response, llm_error
+            try:
+                response = llm.predict(simple_prompt) if llm else ""
+            except Exception as e:
+                llm_error = e
 
-                if missing_requirements:
-                    # Update the response to be honest about missing requirements
-                    missing_text = ", ".join(
-                        [
-                            f"{req['type']} ({req['value']})"
-                            for req in missing_requirements
-                        ]
-                    )
-                    response_data["summary"] = (
-                        f"I couldn't find products with the exact {missing_text} you requested, but here are some alternatives:"
-                    )
-                    response_data["products"] = matching_products
-                    response = json.dumps(response_data)
-                    print(
-                        f"[{timestamp}] Updated response to reflect missing requirements: {missing_text}"
-                    )
-        except Exception as e:
-            print(f"[{timestamp}] Error validating response: {e}")
+        # Run LLM call in a thread with timeout
+        thread = threading.Thread(target=llm_call)
+        thread.daemon = True
+        thread.start()
+        thread.join(timeout=30)  # 30 second timeout
 
-        parsed_response = parse_and_validate_response(response, timestamp)
-        # Fallback: if parsed_response is an error or invalid, wrap as clarification
-        if isinstance(parsed_response, dict) and parsed_response.get("type") == "error":
-            state["llm_response"] = {
-                "type": "clarification",
-                "message": response.strip()
-                or "Sorry, I couldn't process your request.",
-            }
+        if thread.is_alive():
+            print(f"[{timestamp}] LLM call timed out after 30 seconds")
+            response = '{"type": "clarification", "message": "I\'m taking too long to process your request. Please try again with a simpler query."}'
+        elif llm_error:
+            print(f"[{timestamp}] LLM call failed: {llm_error}")
+            response = '{"type": "clarification", "message": "I\'m having trouble processing your request right now. Please try again in a moment."}'
+        elif not response:
+            print(f"[{timestamp}] LLM call returned empty response")
+            response = '{"type": "clarification", "message": "I couldn\'t generate a response. Please try again."}'
+
+    except Exception as llm_error:
+        print(f"[{timestamp}] LLM call failed: {llm_error}")
+        # Provide fallback response
+        response = '{"type": "clarification", "message": "I\'m having trouble processing your request right now. Please try again in a moment."}'
+
+    llm_end = time.time()
+    llm_time = llm_end - llm_start
+    print(f"[{timestamp}] LLM response generation time: {llm_time:.2f} seconds")
+    print(f"[{timestamp}] Raw LLM response: {response}")
+    print(f"[{timestamp}] Response type: {type(response)}")
+    print(f"[{timestamp}] Response length: {len(response) if response else 0}")
+
+    # Parse the response to count products
+    try:
+        response_data = json.loads(response)
+        if (
+            response_data.get("type") == "product_suggestion"
+            and "products" in response_data
+        ):
+            products_count = len(response_data["products"])
+            print(f"[{timestamp}] Found {products_count} products from LLM parsing")
         else:
-            state["llm_response"] = parsed_response
-        update_conversation_history(state, "system", str(state["llm_response"]))
+            print(f"[{timestamp}] No products found in LLM response")
     except Exception as e:
-        print(f"[{timestamp}] Error in reason_node: {e}")
-        import traceback
+        print(f"[{timestamp}] Error parsing LLM response: {e}")
 
-        traceback.print_exc()
+    # Validate the response against user requirements
+    try:
+        # Extract user requirements from slots for validation
+        user_requirements = {}
+        if slots.get("product_type"):
+            user_requirements["product_type"] = slots["product_type"]
+        if slots.get("brand"):
+            user_requirements["brand"] = slots["brand"]
+        if slots.get("color"):
+            user_requirements["color"] = slots["color"]
+        if slots.get("material"):
+            user_requirements["material"] = slots["material"]
+        if slots.get("size"):
+            user_requirements["size"] = slots["size"]
 
-        # Provide more specific error handling based on intent
-        intent = state.get("intent")
-        if intent == IntentType.PRODUCT_SEARCH:
-            error_msg = "I'm having trouble finding products right now. Could you please try rephrasing your request or ask about a specific category?"
-        elif intent == IntentType.CATEGORY_LIST:
-            error_msg = "I'm having trouble retrieving the category list. Please try again in a moment."
-        else:
-            error_msg = "Sorry, I couldn't process your request. Please try rephrasing or ask for help."
+        response_data = json.loads(response)
+        if (
+            response_data.get("type") == "product_suggestion"
+            and "products" in response_data
+        ):
+            products = response_data["products"]
+            matching_products, missing_requirements = (
+                validate_products_against_requirements(products, user_requirements)
+            )
 
-        state["llm_response"] = {"type": "clarification", "message": error_msg}
-        update_conversation_history(state, "system", error_msg)
+            if missing_requirements:
+                # Update the response to be honest about missing requirements
+                missing_text = ", ".join(
+                    [f"{req['type']} ({req['value']})" for req in missing_requirements]
+                )
+                response_data["summary"] = (
+                    f"I couldn't find products with the exact {missing_text} you requested, but here are some alternatives:"
+                )
+                response_data["products"] = matching_products
+                response = json.dumps(response_data)
+                print(
+                    f"[{timestamp}] Updated response to reflect missing requirements: {missing_text}"
+                )
+    except Exception as e:
+        print(f"[{timestamp}] Error validating response: {e}")
+
+    parsed_response = parse_and_validate_response(response, timestamp)
+    # Fallback: if parsed_response is an error or invalid, wrap as clarification
+    if isinstance(parsed_response, dict) and parsed_response.get("type") == "error":
+        state["llm_response"] = {
+            "type": "clarification",
+            "message": response.strip() or "Sorry, I couldn't process your request.",
+        }
+    else:
+        state["llm_response"] = parsed_response
+    update_conversation_history(state, "system", str(state["llm_response"]))
     node_end_time = time.time()
     node_response_time = node_end_time - node_start_time
     print(
@@ -2034,31 +1987,45 @@ def parse_and_validate_response(response: str, timestamp: str) -> Union[Dict, st
     try:
         # Clean up the response to extract JSON
         response_text = response.strip()
+        print(f"[{timestamp}] Original response: {response}")
+        print(f"[{timestamp}] Response text after strip: {response_text}")
+
         if response_text.startswith("```json"):
             response_text = response_text[7:]
+            print(f"[{timestamp}] Removed ```json prefix")
         if response_text.endswith("```"):
             response_text = response_text[:-3]
+            print(f"[{timestamp}] Removed ``` suffix")
         response_text = response_text.strip()
+        print(f"[{timestamp}] Final cleaned response: {response_text}")
 
         # Try to parse as JSON first
         try:
             parsed_response = json.loads(response_text)
-        except json.JSONDecodeError:
+            print(f"[{timestamp}] Successfully parsed JSON")
+        except json.JSONDecodeError as e:
+            print(f"[{timestamp}] JSON parsing failed: {e}")
             # If JSON parsing fails, try to convert Python dict to JSON
             json_text = response_text.replace("'", '"')
             json_text = json_text.replace('"None"', "null")
             json_text = json_text.replace('"True"', "true")
             json_text = json_text.replace('"False"', "false")
+            print(f"[{timestamp}] Trying with converted quotes: {json_text}")
             parsed_response = json.loads(json_text)
 
         if isinstance(parsed_response, dict):
             response_type = parsed_response.get("type")
+            print(f"[{timestamp}] Parsed response type: {response_type}")
+            print(f"[{timestamp}] Parsed response keys: {list(parsed_response.keys())}")
 
             # Validate against schemas
             try:
                 if response_type == "product_suggestion":
+                    print(f"[{timestamp}] Validating as ProductSuggestion")
                     validated = ProductSuggestion(**parsed_response)
-                    return validated.model_dump()
+                    result = validated.model_dump()
+                    print(f"[{timestamp}] Validation successful, returning: {result}")
+                    return result
                 elif response_type == "category_not_found":
                     validated = CategoryNotFound(**parsed_response)
                     return validated.model_dump()
@@ -2076,6 +2043,9 @@ def parse_and_validate_response(response: str, timestamp: str) -> Union[Dict, st
                     return ErrorResponse(message="Invalid response type").model_dump()
             except Exception as validation_error:
                 print(f"[{timestamp}] Schema validation error: {validation_error}")
+                print(
+                    f"[{timestamp}] Failed validation for response: {parsed_response}"
+                )
                 return ErrorResponse(
                     message="Response failed schema validation"
                 ).model_dump()
@@ -2376,84 +2346,141 @@ def get_categories(retriever, timestamp: str) -> List[str]:
     return fallback_categories
 
 
-# --- Slot Processor Node ---
-def slot_processor_node(state: AgentState) -> AgentState:
-    required_slots = state.get("required_slots", ["room_type"])
-    filled_slots = state.get("slots", {})
+# --- Simplified Slot Processor Node (Performance Optimized) ---
+def fast_semantic_slot_processor_node(state: AgentState) -> AgentState:
+    """
+    Ultra-fast semantic slot processor (NO LLM CALLS):
+    - Intent-based context understanding
+    - Maintains slot context for multi-turn queries
+    - Smart category change detection
+    - Reference resolution from history
+    """
+    import datetime
+
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] [FAST_SLOT_PROCESSOR] Starting fast semantic processing...")
+
     user_message = state.get("user_message", "").lower()
+    current_slots = state.get("slots", {}) or {}
+    history = state.get("conversation_history", []) or []
+    intent = state.get("intent")
 
-    # Check if user is referring to a previous product with "this", "it", "that"
-    if any(
-        word in user_message
-        for word in ["this", "it", "that", "the product", "the item"]
-    ):
-        print(f"[SLOT_PROCESSOR] Processing follow-up question: {user_message}")
-        print(f"[SLOT_PROCESSOR] Current slots: {filled_slots}")
+    # --- 1. Intent-based semantic analysis (NO LLM) ---
+    is_new_request = _is_new_product_request_fast(user_message, intent)
+    is_reference = _is_reference_query_fast(user_message, intent)
 
-        # Try to infer missing slots from context
-        if "product_type" not in filled_slots and "product_name" in filled_slots:
-            # If we have a product name but no type, try to infer from the name dynamically
-            product_name = filled_slots.get("product_name", "")
-            product_name_lower = product_name.lower()
+    print(
+        f"[{timestamp}] [FAST_SLOT_PROCESSOR] New request: {is_new_request}, Reference: {is_reference}"
+    )
 
-            # Use dynamic product type mappings from retriever
-            retriever = state.get("retriever")
-            if retriever and hasattr(retriever, "get_product_type_mappings"):
-                mappings = retriever.get_product_type_mappings()
-                if mappings:
-                    for keyword, category in mappings.items():
-                        if keyword in product_name_lower:
-                            filled_slots["product_type"] = category
-                            print(
-                                f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product name"
-                            )
-                            break
-                    else:
-                        # If no keyword match found, try to extract from product name structure
-                        if " - " in product_name:
-                            # Extract the part after the dash which might contain product type
-                            after_dash = product_name.split(" - ")[1].lower()
-                            for keyword, category in mappings.items():
-                                if keyword in after_dash:
-                                    filled_slots["product_type"] = category
-                                    print(
-                                        f"[SLOT_PROCESSOR] Auto-filled product_type '{category}' from keyword '{keyword}' in product description"
-                                    )
-                                    break
+    # --- 2. Handle new product requests ---
+    if is_new_request:
+        # Fast extraction using regex + keywords
+        new_slots = _extract_slots_fast(user_message)
 
-        if "brand" not in filled_slots and "product_name" in filled_slots:
-            # Try to extract brand from product name dynamically
-            product_name = filled_slots.get("product_name", "")
+        # Smart category change detection
+        last_product_type = state.get("last_product_type")
+        new_product_type = new_slots.get("product_type")
 
-            # Extract the first part of the product name (usually the brand)
-            if " - " in product_name:
-                brand_from_name = product_name.split(" - ")[0].strip()
-                filled_slots["brand"] = brand_from_name
-                print(
-                    f"[SLOT_PROCESSOR] Auto-filled brand from product name: {brand_from_name}"
-                )
-            else:
-                # If no clear brand separator, use the first word as brand
-                first_word = product_name.split()[0] if product_name else ""
-                if first_word:
-                    filled_slots["brand"] = first_word
-                    print(
-                        f"[SLOT_PROCESSOR] Auto-filled brand from first word: {first_word}"
-                    )
-                else:
-                    filled_slots["brand"] = COMPANY_NAME
-                    print(f"[SLOT_PROCESSOR] Using default brand: {COMPANY_NAME}")
+        if (
+            new_product_type
+            and last_product_type
+            and new_product_type != last_product_type
+        ):
+            print(
+                f"[{timestamp}] [FAST_SLOT_PROCESSOR] Category changed: {last_product_type} → {new_product_type}"
+            )
+            current_slots = new_slots  # Clear old context
+        else:
+            current_slots.update(new_slots)  # Merge
 
-        # Update the state with the filled slots
-        state["slots"] = filled_slots
-        print(f"[SLOT_PROCESSOR] Updated slots: {filled_slots}")
+        if new_product_type:
+            state["last_product_type"] = new_product_type
 
-    missing_slots = [slot for slot in required_slots if slot not in filled_slots]
-    if missing_slots:
-        print(f"[SLOT_PROCESSOR] Missing slots: {missing_slots}")
-        return prompt_for_slot(state, missing_slots[0])
-    print("[SLOT_PROCESSOR] All required slots filled. Proceeding to reason node.")
+    # --- 3. Handle reference queries ---
+    elif is_reference:
+        print(
+            f"[{timestamp}] [FAST_SLOT_PROCESSOR] Reference query - maintaining context"
+        )
+        # Keep existing slots, fill from history if empty
+        if not current_slots.get("product_type"):
+            for turn in reversed(history[-3:]):  # Fast - only last 3 turns
+                prev_slots = turn.get("slots", {})
+                if prev_slots.get("product_type"):
+                    current_slots.update(prev_slots)
+                    break
+
+    # --- 4. Final update ---
+    state["slots"] = current_slots
+    print(f"[{timestamp}] [FAST_SLOT_PROCESSOR] Final slots: {current_slots}")
     return state
+
+
+def _is_new_product_request_fast(message: str, intent) -> bool:
+    """Fast detection of new product requests"""
+    # Direct intent check (fastest)
+    from .intent_modules import IntentType
+
+    if intent == IntentType.PRODUCT_SEARCH:
+        return True
+
+    # Quick keyword check
+    return any(
+        phrase in message
+        for phrase in ["i want", "looking for", "need", "show me", "find", "get me"]
+    )
+
+
+def _is_reference_query_fast(message: str, intent) -> bool:
+    """Fast detection of reference queries"""
+    # Direct intent check (fastest)
+    from .intent_modules import IntentType
+
+    if intent in [IntentType.WARRANTY_QUERY, IntentType.PRODUCT_DETAIL]:
+        return True
+
+    # Quick reference check
+    return any(ref in message for ref in ["this", "that", "it", "warranty", "details"])
+
+
+def _extract_slots_fast(message: str) -> dict:
+    """Lightning-fast slot extraction using regex + keywords"""
+    slots = {}
+
+    # Product type mapping (optimized - most common first)
+    product_map = {
+        "rug": "rug",
+        "carpet": "rug",
+        "mat": "rug",
+        "sofa": "sofa",
+        "couch": "sofa",
+        "chair": "chair",
+        "seat": "chair",
+        "table": "table",
+        "desk": "desk",
+        "light": "light",
+        "lamp": "light",
+        "chandelier": "light",
+        "curtain": "curtain",
+        "drape": "curtain",
+        "blind": "blind",
+        "bed": "bed",
+        "mattress": "bed",
+    }
+
+    # Find product type (first match wins)
+    for keyword, product_type in product_map.items():
+        if keyword in message:
+            slots["product_type"] = product_type
+            break
+
+    # Quick brand extraction (Brand - Product pattern)
+    if " - " in message:
+        parts = message.split(" - ", 1)
+        if len(parts) > 1:
+            slots["brand"] = parts[0].strip()
+
+    return slots
 
 
 # --- LangGraph Workflow ---
@@ -2463,8 +2490,9 @@ def build_langgraph_agent(retriever, openai_api_key: str):
     llm = ChatOpenAI(
         api_key=SecretStr(openai_api_key),
         temperature=0,
-        request_timeout=15,  # Reduced timeout for faster responses
+        request_timeout=60,  # Increased timeout to prevent timeouts
         model="gpt-3.5-turbo",  # Use faster model
+        max_tokens=1000,  # Limit response length for faster generation
     )
 
     state_schema = AgentState
@@ -2472,7 +2500,7 @@ def build_langgraph_agent(retriever, openai_api_key: str):
 
     # Register nodes
     graph.add_node("classify", classify_node)
-    graph.add_node("slot_processor", slot_processor_node)
+    graph.add_node("slot_processor", fast_semantic_slot_processor_node)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("reason", reason_node)
     graph.add_node("clarify", clarify_node)

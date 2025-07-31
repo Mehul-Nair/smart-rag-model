@@ -39,21 +39,33 @@ class DeBERTaNERTrainer:
         self.id2label = {}
         self.num_labels = 0
 
-    def load_training_data(self, data_file: str):
-        """Load training data and create label mapping"""
-        logger.info(f"Loading training data from {data_file}")
+    def load_training_data(self, data_files):
+        """Load training data from multiple files and create label mapping"""
+        if isinstance(data_files, str):
+            data_files = [data_files]  # Convert single file to list
 
-        # Load training data (supports both JSON and JSONL)
+        logger.info(f"Loading training data from {len(data_files)} file(s)")
+
+        # Load training data from all files
         training_data = []
-        with open(data_file, "r", encoding="utf-8") as f:
-            if data_file.endswith(".jsonl"):
-                # JSONL format - one JSON object per line
-                for line in f:
-                    if line.strip():
-                        training_data.append(json.loads(line.strip()))
-            else:
-                # JSON format - single JSON array
-                training_data = json.load(f)
+        for data_file in data_files:
+            logger.info(f"  Loading: {data_file}")
+            file_data = []
+
+            with open(data_file, "r", encoding="utf-8") as f:
+                if data_file.endswith(".jsonl"):
+                    # JSONL format - one JSON object per line
+                    for line in f:
+                        if line.strip():
+                            file_data.append(json.loads(line.strip()))
+                else:
+                    # JSON format - single JSON array
+                    file_data = json.load(f)
+
+            training_data.extend(file_data)
+            logger.info(f"    Added {len(file_data)} examples from {data_file}")
+
+        logger.info(f"Total training examples loaded: {len(training_data)}")
 
         # Create label mapping from entity types
         entity_types = [
@@ -370,7 +382,35 @@ def main():
 
     # Configuration
     model_name = "microsoft/deberta-v3-small"
-    data_file = "data/training/ner/ner_data.jsonl"  # Your JSONL dataset
+
+    # Automatically discover all JSONL files in the NER training folder
+    ner_folder = os.path.join("data", "training", "ner")
+    data_files = []
+
+    # Optional: Files to exclude from training (e.g., test files, backups)
+    exclude_files = {
+        # "test_data.jsonl",           # Exclude test files
+        # "backup_data.jsonl",         # Exclude backup files
+        # "ner_data_enhanced.jsonl",   # Exclude combined file if using separate files
+    }
+
+    if os.path.exists(ner_folder):
+        # Get all .jsonl files from the NER folder
+        for filename in sorted(os.listdir(ner_folder)):
+            if filename.endswith(".jsonl") and filename not in exclude_files:
+                file_path = os.path.join(ner_folder, filename)
+                data_files.append(file_path)
+                logger.info(f"📁 Found training file: {filename}")
+            elif filename.endswith(".jsonl"):
+                logger.info(f"⏭️  Skipping excluded file: {filename}")
+
+    if not data_files:
+        logger.error(f"❌ No JSONL files found in {ner_folder}")
+        logger.error("Please add your training data files (.jsonl) to the NER folder")
+        return
+
+    logger.info(f"🎯 Will train on {len(data_files)} JSONL files")
+
     output_dir = "trained_deberta_ner_model"
 
     # Training parameters for better performance
@@ -380,22 +420,13 @@ def main():
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
-    os.makedirs("data/training/ner", exist_ok=True)
-
-    # Check if custom dataset exists
-    if not os.path.exists(data_file):
-        logger.error(f"❌ Custom dataset not found at {data_file}")
-        logger.error("Please create your dataset file before training.")
-        logger.error(
-            "Expected format: JSONL file with 'text' and 'entities' fields (one JSON object per line)"
-        )
-        return
+    os.makedirs(ner_folder, exist_ok=True)
 
     # Initialize trainer
     trainer = DeBERTaNERTrainer(model_name)
 
-    # Load training data
-    training_data = trainer.load_training_data(data_file)
+    # Load training data from multiple files
+    training_data = trainer.load_training_data(data_files)
 
     # Initialize model
     trainer.initialize_model()
