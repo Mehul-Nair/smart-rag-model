@@ -68,7 +68,7 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
           <div className="relative rounded-2xl overflow-hidden">
             {/* Background */}
             <div
-              className="absolute inset-0 rounded-2xl pointer-events-none z-0"
+              className="absolute inset-0 rounded-2xl pointer-events-none dark:hidden z-0"
               style={{
                 background:
                   isFocused || isLoading
@@ -78,7 +78,7 @@ const AnimatedTextarea = forwardRef<HTMLTextAreaElement, AnimatedTextareaProps>(
             />
             {/* Dark mode background */}
             <div
-              className="absolute inset-0 rounded-2xl pointer-events-none dark:block hidden z-0"
+              className="absolute inset-0 rounded-2xl pointer-events-none hidden dark:block z-0"
               style={{
                 background:
                   isFocused || isLoading

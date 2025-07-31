@@ -118,6 +118,7 @@
   /* Dark mode body background */
   .dark body {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+    color: #f1f5f9;
   }
 
   /* Smooth scrolling */
@@ -187,6 +188,17 @@
 
   .dark .glass-dark {
     @apply bg-gray-900/20 backdrop-blur-xl border border-gray-700/10;
+  }
+
+  /* Dark mode textarea enhancements */
+  .dark .textarea-gradient {
+    @apply bg-gray-800/90 border-gray-600 text-gray-100;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
+
+  .dark .textarea-gradient:focus {
+    @apply bg-gray-800/95;
+    box-shadow: 0 10px 15px -3px rgba(147, 51, 234, 0.2), 0 4px 6px -2px rgba(147, 51, 234, 0.1);
   }
 
   /* Enhanced textarea with animated gradient background */
@@ -382,4 +394,6 @@ button:active {
 .carousel-button-container {
   transform: translateZ(0);
   backface-visibility: hidden;
-} 
+}
+
+ 

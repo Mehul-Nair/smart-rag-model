@@ -1,7 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Bot, DollarSign } from "lucide-react";
+import { Bot, IndianRupee } from "lucide-react";
 import BudgetSuggestion from "./BudgetSuggestion";
+import logoImage from "../assets/images/logos/asian-paint-ap-logo.png";
 
 interface BudgetConstraintData {
   type: string;
@@ -45,19 +46,25 @@ const BudgetConstraintResponse: React.FC<BudgetConstraintResponseProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="flex items-start space-x-3"
+      className="flex items-start space-x-3 flex-col gap-5"
     >
       {/* Avatar */}
-      <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
-        <Bot className="w-4 h-4 text-white" />
+      <div className="w-10 h-10 rounded-full p-2 flex items-center justify-center flex-shrink-0 shadow-lg">
+      <img
+          src={logoImage}
+          alt="Beautiful Homes Logo AP"
+          width="60"
+          height="75"
+          className="sm:w-20 sm:h-25"
+        />
       </div>
 
       {/* Content */}
-      <div className="flex-1">
+      <div className="w-full">
         {/* Message */}
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-2xl px-4 py-3 border border-yellow-200 dark:border-yellow-700/50 mb-4">
           <div className="flex items-center space-x-2 mb-2">
-            <DollarSign className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            <IndianRupee className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
             <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
               Budget Constraint
             </span>
@@ -88,7 +95,7 @@ const BudgetConstraintResponse: React.FC<BudgetConstraintResponseProps> = ({
             onClick={() =>
               onCategoryClick && onCategoryClick(`show me ${data.category}`)
             }
-            className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+            className="px-4 py-2 bg-custom-purple hover:bg-custom-purple-dark text-white rounded-lg text-sm font-medium transition-colors duration-200"
           >
             Show All {data.category}
           </button>
