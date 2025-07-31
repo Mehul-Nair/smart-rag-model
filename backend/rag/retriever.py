@@ -100,5 +100,47 @@ class ExcelRetriever:
         """Get the loaded product type mappings."""
         return self.product_type_mappings
 
+    def get_product_data(self, category: str, limit: int = 10):
+        """
+        Get sample product data for a specific category for slot relevance analysis.
+
+        Args:
+            category: The category to get products for
+            limit: Maximum number of products to return
+
+        Returns:
+            List of product documents/metadata
+        """
+        try:
+            # Search for products in the specified category
+            query = f"category: {category}"
+            docs = self.retriever.get_relevant_documents(query, k=limit)
+
+            # Extract product information from documents
+            products = []
+            for doc in docs:
+                if hasattr(doc, "metadata") and doc.metadata:
+                    product_info = {
+                        "title": doc.metadata.get("title", ""),
+                        "description": doc.page_content,
+                        "category": doc.metadata.get("category", ""),
+                        "sub_category": doc.metadata.get("sub_category", ""),
+                        "brand": doc.metadata.get("brand_name", ""),
+                        "material": doc.metadata.get("primary_material", ""),
+                        "color": doc.metadata.get("colour", ""),
+                        "size": doc.metadata.get("size", ""),
+                        "style": doc.metadata.get("style", ""),
+                        "room_type": doc.metadata.get("end_use", ""),
+                        "price": doc.metadata.get("price", ""),
+                        "full_text": f"{doc.page_content} {doc.metadata.get('title', '')} {doc.metadata.get('brand_name', '')} {doc.metadata.get('primary_material', '')}",
+                    }
+                    products.append(product_info)
+
+            return products
+
+        except Exception as e:
+            print(f"Error getting product data for category {category}: {e}")
+            return []
+
     def retrieve(self, query: str, k: int = 3):
         return self.retriever.get_relevant_documents(query, k=k)

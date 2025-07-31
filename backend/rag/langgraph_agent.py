@@ -1113,6 +1113,13 @@ def classify_node(state: AgentState) -> AgentState:
         IntentType.PRODUCT,  # Legacy
         # IntentType.BUDGET,  # Legacy - use BUDGET_QUERY
     ]:
+        # Check if this is a new conversation (not a follow-up)
+        conversation_history = state.get("conversation_history", [])
+        if len(conversation_history) <= 2:  # New conversation
+            print(f"[{timestamp}] New conversation detected, clearing previous slots")
+            state["slots"] = {}
+            state["last_prompted_slot"] = None
+            state["slot_prompt_turn"] = None
         try:
             # Fast NER-based extraction
             from rag.intent_modules.dynamic_ner_classifier import (
@@ -1140,6 +1147,33 @@ def classify_node(state: AgentState) -> AgentState:
                     "WARRANTY": "warranty",
                     "CATEGORY": "category",
                 }
+
+                # Check if product_type is changing and clear irrelevant slots
+                new_product_type = None
+                if "PRODUCT_TYPE" in extracted_slots:
+                    new_product_type = extracted_slots["PRODUCT_TYPE"]
+                elif "PRODUCT_NAME" in extracted_slots:
+                    new_product_type = extracted_slots["PRODUCT_NAME"]
+
+                if new_product_type and "product_type" in state.get("slots", {}):
+                    current_product_type = state["slots"]["product_type"]
+                    if new_product_type.lower() != current_product_type.lower():
+                        print(
+                            f"[{timestamp}] Product type changing from '{current_product_type}' to '{new_product_type}', clearing irrelevant slots"
+                        )
+                        # Clear slots that are specific to the previous product type
+                        slots_to_clear = [
+                            "brand",
+                            "material",
+                            "color",
+                            "size",
+                            "style",
+                            "product_name",
+                        ]
+                        for slot_to_clear in slots_to_clear:
+                            if slot_to_clear in state.get("slots", {}):
+                                del state["slots"][slot_to_clear]
+                                print(f"[{timestamp}] Cleared slot: {slot_to_clear}")
 
                 # Update slots with extracted entities
                 for entity_type, value in extracted_slots.items():
@@ -1352,7 +1386,7 @@ def retrieve_node(state: AgentState) -> AgentState:
             unique_docs.append(doc)
             seen_content.add(content_hash)
 
-    docs = unique_docs[:20]  # Limit to 20 docs
+    docs = unique_docs[:5]  # Limit to 5 docs for faster processing
     retrieve_end = time.time()
     retrieve_time = retrieve_end - retrieve_start
 
@@ -1362,12 +1396,12 @@ def retrieve_node(state: AgentState) -> AgentState:
     )
 
     # Debug: Print some sample documents to see what's being retrieved
-    if docs:
-        print(f"[{timestamp}] Sample retrieved documents:")
-        for i, doc in enumerate(docs[:3]):  # Show first 3 docs
-            print(f"[{timestamp}] Doc {i+1}: {doc.page_content[:200]}...")
-            if hasattr(doc, "metadata") and doc.metadata:
-                print(f"[{timestamp}] Doc {i+1} metadata: {doc.metadata}")
+    # if docs:
+    #     print(f"[{timestamp}] Sample retrieved documents:")
+    #     for i, doc in enumerate(docs[:3]):  # Show first 3 docs
+    #         print(f"[{timestamp}] Doc {i+1}: {doc.page_content[:200]}...")
+    #         if hasattr(doc, "metadata") and doc.metadata:
+    #             print(f"[{timestamp}] Doc {i+1} metadata: {doc.metadata}")
 
     node_end_time = time.time()
     node_response_time = node_end_time - node_start_time
@@ -1874,33 +1908,21 @@ Response:"""
         else:
             print(f"[{timestamp}] Product type mappings not available")
 
-        full_prompt = f"""You are a helpful home decor assistant. Provide product suggestions based on the user's requirements.
+            # Use LLM with simple prompt for better field extraction
+        import json
 
-IMPORTANT RULES:
-1. ONLY suggest products that are explicitly mentioned in the context
-2. If the context doesn't contain products matching the user's requirements, be honest about it
-3. Do NOT claim to have products in specific colors/materials if they're not in the context
-4. If you can't find exact matches, suggest alternatives but clearly state what's missing
-5. ALWAYS check the context first before deciding if a category is not found
-6. If the context contains products of the requested type, suggest them regardless of category names
-7. CRITICAL: Product types are mapped to categories. When a user asks for a specific product type (like "bed"), you should look for products in the mapped category (like "furniture"). Do NOT look for the product type as a direct category.
-8. If the user asks for "bed", look in the "furniture" category. If they ask for "lamp", look in the "lights" category. If they ask for "rug", look in the "rugs" category.
+        # Create a simple prompt for LLM
+        context = "\n".join([doc.page_content for doc in docs])
 
-Available response types:
-1. product_suggestion: When you have relevant products to suggest
-2. budget_constraint: When the user's budget is too low for available products
-3. category_not_found: When the requested category doesn't exist AND no relevant products are found in context
-4. clarification: When you need more information
+        simple_prompt = f"""Extract product information from the context and format as JSON.
 
-Response schemas:
-For product suggestions:
 {{
   "type": "product_suggestion",
-  "summary": "Brief summary of what you found",
+  "summary": "Product suggestions",
   "products": [
     {{
       "name": "Product Name",
-      "category": "Product Category",
+      "category": "Product Category", 
       "price": "Price",
       "discounted_price": "Discounted Price",
       "discount_percentage": "Discount Percentage",
@@ -1911,77 +1933,32 @@ For product suggestions:
   ]
 }}
 
-For budget constraints:
-{{
-  "type": "budget_constraint",
-  "category": "Product category",
-  "requested_budget": "User's budget",
-  "message": "Explanation of budget constraint"
-}}
-
-For clarifications:
-{{
-  "type": "clarification",
-  "message": "Your clarification question"
-}}
-
-For category not found:
-{{
-  "type": "category_not_found",
-  "requested_category": "The category the user requested",
-  "available_categories": ["list", "of", "available", "categories"],
-  "message": "Explanation of what categories are available"
-}}
-
-{summary_text}{history_text}{categories_text}{product_type_mappings_text}User is looking for: {slot_str}.
-
-IMPORTANT BUDGET HANDLING:
-- If the user has specified a budget, ONLY suggest products within that budget
-- If no products are available within the budget, use budget_constraint response type
-- Always consider the budget when making suggestions
-
-CRITICAL: Check the context first! If the context contains products that match what the user is looking for, suggest them as product_suggestion, even if the category names don't exactly match. Only use category_not_found if the context is completely empty or contains no relevant products.
-
-IMPORTANT: When the user asks for a specific product type (like "bed"), the context should contain products from the mapped category (like "furniture"). Look for products in the context that match the user's request, regardless of the exact category names.
-
-SPECIFIC INSTRUCTIONS FOR BED PRODUCTS:
-- When the user asks for "bed", look for products with "Sub Category: bed" in the context
-- These bed products are typically found in the "Furniture" category
-- If you see products with "Sub Category: bed" in the context, suggest them as product_suggestion
-- Do NOT say "bed" category is not found if you see bed products in the context
-
-Use ONLY the provided context to answer. If the context does NOT contain relevant information, do NOT attempt to answer.
-If the context lacks sufficient detail, ask a clear follow-up question instead of assuming.
-
-IMPORTANT: The user is asking about home decor products. Focus on providing helpful product suggestions based on the context.
-If you find relevant products in the context, suggest them. If the budget is too low, explain the budget constraint.
-Only ask for clarification if you genuinely need more information to provide a good suggestion.
-
-IMPORTANT: When extracting product information from the context, make sure to include the featuredImg (Product Image URL) if available in the context.
-The context may contain 'Product Image: [URL]' information that should be extracted as featuredImg.
-
-IMPORTANT: When extracting product information from the context, make sure to include the discounted_price, discount_percentage, and url if available in the context.
-The context may contain 'Discounted Price: [PRICE]' information that should be extracted as discounted_price.
-The context may contain discount_percentage information that should be extracted as discount_percentage.
-The context may contain 'Product URL: [URL]' information that should be extracted as url.
-
 Context:
 {context}
 
-User Message:
-{user_message}
+JSON:"""
 
-Assistant:
-IMPORTANT: Reply ONLY in valid JSON as per the above schema. Do not reply in free text.
-
-DEBUG: Before responding, check if the context contains any products with "Sub Category: bed" or mentions of bed products. If it does, you MUST suggest them as product_suggestion, not category_not_found."""
-        print(f"[{timestamp}] Using LLM to generate response...")
+        print(f"[{timestamp}] Using LLM with simple prompt for field extraction...")
         llm_start = time.time()
-        response = llm.predict(full_prompt) if llm else ""
+        response = llm.predict(simple_prompt) if llm else ""
         llm_end = time.time()
         llm_time = llm_end - llm_start
         print(f"[{timestamp}] LLM response generation time: {llm_time:.2f} seconds")
         print(f"[{timestamp}] Raw LLM response: {response}")
+
+        # Parse the response to count products
+        try:
+            response_data = json.loads(response)
+            if (
+                response_data.get("type") == "product_suggestion"
+                and "products" in response_data
+            ):
+                products_count = len(response_data["products"])
+                print(f"[{timestamp}] Found {products_count} products from LLM parsing")
+            else:
+                print(f"[{timestamp}] No products found in LLM response")
+        except Exception as e:
+            print(f"[{timestamp}] Error parsing LLM response: {e}")
 
         # Validate the response against user requirements
         try:
@@ -2486,7 +2463,8 @@ def build_langgraph_agent(retriever, openai_api_key: str):
     llm = ChatOpenAI(
         api_key=SecretStr(openai_api_key),
         temperature=0,
-        request_timeout=30,  # 30 second timeout to prevent very slow responses
+        request_timeout=15,  # Reduced timeout for faster responses
+        model="gpt-3.5-turbo",  # Use faster model
     )
 
     state_schema = AgentState
