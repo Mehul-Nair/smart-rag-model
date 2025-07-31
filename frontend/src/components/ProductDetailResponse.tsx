@@ -10,6 +10,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import logoImage from "../assets/images/logos/asian-paint-ap-logo.png";
+import furnitureIcon from "../assets/icons/Furniture.png";
 
 interface ProductDetailData {
   type: string;
@@ -75,23 +76,23 @@ const ProductDetailResponse: React.FC<ProductDetailResponseProps> = ({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="flex items-start space-x-3 chat-message-container"
-    >
+    <div className="flex items-start space-x-3 chat-message-container flex-col gap-5">
       {/* Avatar */}
-      <div className="w-10 h-10 rounded-full p-2 flex items-center justify-center flex-shrink-0 shadow-lg">
-      <img
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="w-10 h-10 rounded-full p-2 flex items-center justify-center flex-shrink-0 shadow-lg"
+      >
+        <img
           src={logoImage}
           alt="Beautiful Homes Logo AP"
           width="60"
           height="75"
           className="sm:w-20 sm:h-25"
         />
-      </div>
+      </motion.div>
 
       {/* Content */}
       <div className="flex-1 flex-stable">
@@ -116,18 +117,27 @@ const ProductDetailResponse: React.FC<ProductDetailResponseProps> = ({
               {Object.entries(data.details).map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                  className="bg-white flex flex-col justify-start border border-gray-200 rounded-xl p-8 w-full"
                 >
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center">
-                    {getDetailIcon(key)}
+                  {/* Circular Icon */}
+                  <div className="w-12 h-12 rounded-full border border-gray-300 flex items-center justify-center mb-4">
+                    <img
+                      src={furnitureIcon}
+                      alt="Furniture Icon"
+                      width="16"
+                      height="16"
+                      className="object-contain"
+                    />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      {getDetailLabel(key)}
-                    </p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {formatDetailValue(key, value)}
-                    </p>
+
+                  {/* Detail Label */}
+                  <div className="text-xs text-gray-500 font-medium mb-1">
+                    {getDetailLabel(key)}
+                  </div>
+
+                  {/* Detail Value */}
+                  <div className="text-lg font-bold text-gray-900">
+                    {formatDetailValue(key, value)}
                   </div>
                 </div>
               ))}
@@ -157,7 +167,7 @@ const ProductDetailResponse: React.FC<ProductDetailResponseProps> = ({
           {timestamp.toLocaleTimeString()}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

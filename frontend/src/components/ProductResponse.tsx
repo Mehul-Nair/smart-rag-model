@@ -27,20 +27,35 @@ interface ProductResponseProps {
   userQuery?: string;
 }
 
-// Carousel Component
+// Custom Carousel Component
 const ProductCarousel: React.FC<{ products: Product[] }> = ({ products }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const productsPerView = 3; // Show 3 products at a time
+  const productsPerView = 5; // Show 3 products at a time
   const maxIndex = Math.max(0, products.length - productsPerView);
+
+  // Handle scroll events to update current index
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const cardWidth = 320; // Fixed card width (w-80 = 320px)
+      const gap = 24; // gap-6 = 24px
+      const scrollPosition = container.scrollLeft;
+      const newIndex = Math.round(scrollPosition / (cardWidth + gap));
+      setCurrentIndex(Math.max(0, Math.min(newIndex, maxIndex)));
+    }
+  };
 
   const scrollToIndex = (index: number) => {
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
-      const cardWidth = container.scrollWidth / products.length;
+      const cardWidth = 320; // Fixed card width (w-80 = 320px)
+      const gap = 24; // gap-6 = 24px
+      const scrollPosition = index * (cardWidth + gap);
+      
       container.scrollTo({
-        left: index * cardWidth,
+        left: scrollPosition,
         behavior: "smooth",
       });
     }
@@ -83,15 +98,21 @@ const ProductCarousel: React.FC<{ products: Product[] }> = ({ products }) => {
       {/* Carousel Container */}
       <div
         ref={scrollContainerRef}
+        onScroll={handleScroll}
         className="flex gap-6 overflow-x-auto scrollbar-hide carousel-container px-4"
         style={{
           scrollbarWidth: "none",
           msOverflowStyle: "none",
           WebkitOverflowScrolling: "touch",
+          scrollSnapType: "x mandatory",
         }}
       >
         {products.map((product, index) => (
-          <div key={index} className="carousel-item w-80 max-w-full">
+          <div 
+            key={index} 
+            className="carousel-item w-80 flex-shrink-0"
+            style={{ scrollSnapAlign: "start" }}
+          >
             <ProductCard product={product} index={index} />
           </div>
         ))}
@@ -225,7 +246,7 @@ const ProductResponse: React.FC<ProductResponseProps> = ({
                     onClick={() =>
                       onCategoryClick && onCategoryClick("show me all products")
                     }
-                    className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                    className="px-4 py-2 bg-custom-purple hover:bg-custom-purple-dark text-white rounded-lg text-sm font-medium transition-colors duration-200"
                   >
                     Show All Products
                   </button>

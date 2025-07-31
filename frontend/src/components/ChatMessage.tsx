@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Bot, User } from "lucide-react";
+import { Bot, User, Edit, Copy, Check } from "lucide-react";
 import ProductResponse from "./ProductResponse";
 import ProductDetailResponse from "./ProductDetailResponse";
 import CategoryResponse from "./CategoryResponse";
@@ -75,13 +75,51 @@ interface Message {
 interface ChatMessageProps {
   message: Message;
   onCategoryClick?: (category: string) => void;
+  onEditMessage?: (messageId: string, newContent: string) => void;
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   onCategoryClick,
+  onEditMessage,
 }) => {
   const isUser = message.sender === "user";
+  const [isHovered, setIsHovered] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(
+    typeof message.content === "string" ? message.content : ""
+  );
+
+  const handleCopy = async () => {
+    const contentToCopy = typeof message.content === "string" 
+      ? message.content 
+      : JSON.stringify(message.content);
+    
+    try {
+      await navigator.clipboard.writeText(contentToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (onEditMessage && editContent.trim()) {
+      onEditMessage(message.id, editContent.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditContent(typeof message.content === "string" ? message.content : "");
+    setIsEditing(false);
+  };
 
   console.log("ChatMessage content:", message.content, typeof message.content); // Debug log
   console.log("Is user:", isUser);
@@ -291,20 +329,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
 
   // Handle regular text message
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      transition={{
-        duration: 0.4,
-        ease: [0.25, 0.46, 0.45, 0.94],
-        type: "spring",
-        stiffness: 300,
-        damping: 30,
-      }}
+    <div
       className={`flex items-start space-x-3 w-full ${
         isUser ? "flex-row-reverse space-x-reverse" : ""
       }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Avatar */}
       <motion.div
@@ -330,25 +360,62 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         )}
       </motion.div>
 
+   
+
       {/* Message Bubble */}
-      <div className={`flex-1 ${isUser ? "text-right" : "text-left"}`}>
+      <div className={`${isUser ? "text-right" : "text-left"}`}>
         <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.95 }}
+          transition={{
+            duration: 0.4,
+            ease: [0.25, 0.46, 0.45, 0.94],
+            type: "spring",
+            stiffness: 300,
+            damping: 30,
+          }}
           className={`inline-block px-5 py-3 rounded-2xl shadow-lg max-w-xs lg:max-w-md backdrop-blur-sm border ${
             isUser
               ? "bg-custom-purple text-white border-white/20"
               : "bg-white/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-100 border-white/50 dark:border-gray-600/50"
           }`}
           whileHover={{ scale: 1.02, y: -2 }}
-          transition={{ type: "spring", stiffness: 400, damping: 25 }}
         >
-          <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
-            {typeof message.content === "string"
-              ? message.content
-              : typeof message.content === "object" &&
-                "message" in message.content
-              ? message.content.message
-              : "Product data received"}
-          </div>
+          {isEditing ? (
+            <div className="space-y-2">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="w-full p-2 text-sm bg-white/90 dark:bg-gray-700/90 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 resize-none"
+                rows={3}
+                autoFocus
+              />
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleSaveEdit}
+                  className="px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  className="px-3 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+              {typeof message.content === "string"
+                ? message.content
+                : typeof message.content === "object" &&
+                  "message" in message.content
+                ? message.content.message
+                : "Product data received"}
+            </div>
+          )}
         </motion.div>
 
         {/* Timestamp */}
@@ -363,7 +430,36 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           })}
         </div>
       </div>
-    </motion.div>
+                   {/* Edit and Copy Actions - Only for user messages */}
+          {isUser && isHovered && !isEditing && (
+         <motion.div
+           initial={{ opacity: 0, y: 10 }}
+           animate={{ opacity: 1, y: 0 }}
+           exit={{ opacity: 0, y: 10 }}
+           transition={{ duration: 0.2 }}
+           className="flex space-x-2 flex-shrink-0"
+         >
+          <button
+            onClick={handleEdit}
+            className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+            title="Edit message"
+          >
+            <Edit className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleCopy}
+            className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+            title="Copy message"
+          >
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-green-500" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+          </button>
+        </motion.div>
+      )}
+    </div>
   );
 };
 
