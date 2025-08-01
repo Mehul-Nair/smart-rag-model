@@ -22,6 +22,7 @@ class IntentType(str, Enum):
     BUDGET_QUERY = "budget_query"
     PRODUCT_DETAIL = "product_detail"
     WARRANTY_QUERY = "warranty_query"
+    COMPETITOR_REDIRECT = "competitor_redirect"
     INVALID = "invalid"
 
     # Legacy/fallback intents

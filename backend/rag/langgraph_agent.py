@@ -143,11 +143,13 @@ def map_detail_to_field(detail, available_fields):
         "dimensions": "size",
         "color": "color",
         "type": "sub_category",
-        "description": "title",
+        "description": "sku_description",  # Fixed: map description to sku_description field
         "brand": "brand",
         "price": "price",
         "category": "category",
         "size": "size",
+        "title": "title",
+        "name": "title",
     }
     for k, v in field_map.items():
         if detail.lower() in [k, v] and v in available_fields:
@@ -248,11 +250,40 @@ def advanced_product_detail_handler(slots, retriever, llm, user_query, history=N
     if not product:
         return "Which product do you mean? Please specify."
     details_requested = resolve_details(slots, user_query)
-    docs = retriever.retrieve(product, k=1)
-    if not docs:
+
+    # Try multiple search strategies to find the product
+    docs = []
+
+    # Strategy 1: Direct product name search
+    docs.extend(retriever.retrieve(product, k=3))
+
+    # Strategy 2: Search with quotes for exact match
+    exact_search = f'"{product}"'
+    docs.extend(retriever.retrieve(exact_search, k=3))
+
+    # Strategy 3: Search by product type if available
+    if slots.get("product_type"):
+        product_type_search = f"{slots['product_type']} {product}"
+        docs.extend(retriever.retrieve(product_type_search, k=3))
+
+    # Remove duplicates based on content
+    unique_docs = []
+    seen_content = set()
+    for doc in docs:
+        content_hash = hash(doc.page_content)
+        if content_hash not in seen_content:
+            unique_docs.append(doc)
+            seen_content.add(content_hash)
+
+    if not unique_docs:
         return f"Sorry, I couldn't find details for {product}."
-    doc = docs[0]
+
+    # Use the first document (most relevant)
+    doc = unique_docs[0]
     available_fields = get_available_fields(doc)
+    print(f"Available fields in document: {available_fields}")
+    print(f"Document metadata: {doc.metadata}")
+
     details = {}
     for detail in details_requested:
         field = map_detail_to_field(detail, available_fields)
@@ -260,6 +291,107 @@ def advanced_product_detail_handler(slots, retriever, llm, user_query, history=N
             details[detail] = doc.metadata[field]
         else:
             details[detail] = None
+
+    # Also try to extract from document content if not found in metadata
+    content_lower = doc.page_content.lower()
+    product_lower = product.lower()
+
+    # Try to find additional details from content
+    if not details.get("brand") or details["brand"] is None:
+        # Look for brand patterns in content
+        brand_patterns = ["brand:", "by", "manufactured by", "produced by"]
+        for pattern in brand_patterns:
+            if pattern in content_lower:
+                # Extract brand after pattern
+                start_idx = content_lower.find(pattern) + len(pattern)
+                end_idx = content_lower.find(" ", start_idx)
+                if end_idx == -1:
+                    end_idx = len(content_lower)
+                brand = content_lower[start_idx:end_idx].strip()
+                if brand and len(brand) > 2:
+                    details["brand"] = brand.title()
+                    break
+
+    if not details.get("material") or details["material"] is None:
+        # Look for material patterns
+        material_patterns = [
+            "material:",
+            "made of",
+            "constructed from",
+            "fabricated from",
+        ]
+        for pattern in material_patterns:
+            if pattern in content_lower:
+                start_idx = content_lower.find(pattern) + len(pattern)
+                end_idx = content_lower.find(" ", start_idx)
+                if end_idx == -1:
+                    end_idx = len(content_lower)
+                material = content_lower[start_idx:end_idx].strip()
+                if material and len(material) > 2:
+                    details["material"] = material.title()
+                    break
+
+    if not details.get("color") or details["color"] is None:
+        # Look for color patterns
+        color_patterns = ["color:", "colour:", "available in", "comes in"]
+        for pattern in color_patterns:
+            if pattern in content_lower:
+                start_idx = content_lower.find(pattern) + len(pattern)
+                end_idx = content_lower.find(" ", start_idx)
+                if end_idx == -1:
+                    end_idx = len(content_lower)
+                color = content_lower[start_idx:end_idx].strip()
+                if color and len(color) > 2:
+                    details["color"] = color.title()
+                    break
+
+    # Try to extract description from content if not found in metadata
+    if not details.get("description") or details["description"] is None:
+        # Look for description patterns
+        desc_patterns = ["description:", "details:", "features:", "about:", "overview:"]
+        for pattern in desc_patterns:
+            if pattern in content_lower:
+                start_idx = content_lower.find(pattern) + len(pattern)
+                # Look for end of description (next pattern or end of content)
+                end_idx = len(content_lower)
+                for other_pattern in desc_patterns:
+                    if other_pattern in content_lower[start_idx:]:
+                        other_idx = content_lower.find(other_pattern, start_idx)
+                        if other_idx < end_idx:
+                            end_idx = other_idx
+
+                description = content_lower[start_idx:end_idx].strip()
+                if (
+                    description and len(description) > 10
+                ):  # Ensure meaningful description
+                    details["description"] = description.capitalize()
+                    break
+
+        # If no pattern found, try to extract meaningful content
+        if not details.get("description") or details["description"] is None:
+            # Look for sentences that contain product-related keywords
+            sentences = doc.page_content.split(".")
+            for sentence in sentences:
+                sentence_lower = sentence.lower()
+                if product_lower in sentence_lower and any(
+                    keyword in sentence_lower
+                    for keyword in [
+                        "beautiful",
+                        "elegant",
+                        "stunning",
+                        "features",
+                        "design",
+                        "style",
+                        "quality",
+                        "premium",
+                    ]
+                ):
+                    if len(sentence.strip()) > 20:  # Ensure meaningful sentence
+                        details["description"] = sentence.strip()
+                        break
+
+    print(f"Extracted details: {details}")
+
     missing = [d for d, v in details.items() if not v]
     fallback_msg = ""
     if missing:
@@ -291,15 +423,23 @@ def advanced_product_detail_handler(slots, retriever, llm, user_query, history=N
                     details_text += f"Size: {value}. "
                 elif detail_type == "category":
                     details_text += f"Category: {value}. "
+                elif detail_type == "description":
+                    details_text += f"Description: {value}. "
                 else:
                     details_text += f"{detail_type.capitalize()}: {value}. "
 
         llm_response = f"Here are the details for {product}: {details_text}"
 
     # Return structured response for UI
+    # Remove description from details to avoid duplication in UI
+    filtered_details = {
+        k: v
+        for k, v in details.items()
+        if v and str(v).lower() != "nan" and k != "description"
+    }
     return ProductDetailResponse(
         product_name=product,
-        details={k: v for k, v in details.items() if v and str(v).lower() != "nan"},
+        details=filtered_details,
         message=llm_response,
     )
 
@@ -802,54 +942,74 @@ def classify_node(state: AgentState) -> AgentState:
     # Rule-based intent detection overrides
     user_lower = user_message.lower().strip()
 
-    # Handle short responses that might be slot values
-    if len(user_lower.split()) <= 2 and state.get("last_prompted_slot"):
-        # This is likely a slot value, not a new conversation
-        pass
-    elif len(user_lower.split()) <= 2 and not state.get("last_prompted_slot"):
-        # Check if this looks like a product type or category
-        product_keywords = [
-            "furniture",
-            "furnishings",
-            "sofa",
-            "chair",
-            "table",
-            "bed",
-            "desk",
-            "wardrobe",
-            "cabinet",
-            "curtain",
-            "drape",
-            "blind",
-            "shade",
-            "rug",
-            "carpet",
-            "mat",
-            "light",
-            "lamp",
-            "chandelier",
-            "bath",
-            "shower",
-            "toilet",
-            "sink",
-            "kitchen",
-            "dining",
-            "bedroom",
-            "living",
-            "study",
-            "office",
-        ]
+    # Import competitor handler
+    from .competitor_handler import competitor_handler
 
-        if any(keyword in user_lower for keyword in product_keywords):
-            # This is likely a product type, treat as PRODUCT_SEARCH
-            state["intent"] = IntentType.PRODUCT_SEARCH
-            state["intent_confidence"] = 0.8
-            state["intent_scores"] = {IntentType.PRODUCT_SEARCH.value: 0.8}
-            print(f"[{timestamp}] Short message detected as product type: {user_lower}")
-            # Continue with slot extraction below
-        else:
-            # Let the classifier handle it
+    # Check for competitor brands in the request
+    competitor_response = competitor_handler.handle_competitor_query(user_message)
+
+    if competitor_response:
+        # Set competitor redirect intent
+        state["intent"] = IntentType.COMPETITOR_REDIRECT
+        state["intent_confidence"] = 0.95
+        state["intent_scores"] = {IntentType.COMPETITOR_REDIRECT.value: 0.95}
+        state["competitor_response"] = competitor_response
+        print(
+            f"[{timestamp}] Detected competitor request, setting COMPETITOR_REDIRECT intent: {user_lower}"
+        )
+        # Return early to prevent normal intent classification from overriding
+        return state
+    else:
+        # Handle short responses that might be slot values
+        if len(user_lower.split()) <= 2 and state.get("last_prompted_slot"):
+            # This is likely a slot value, not a new conversation
             pass
+        elif len(user_lower.split()) <= 2 and not state.get("last_prompted_slot"):
+            # Check if this looks like a product type or category
+            product_keywords = [
+                "furniture",
+                "furnishings",
+                "sofa",
+                "chair",
+                "table",
+                "bed",
+                "desk",
+                "wardrobe",
+                "cabinet",
+                "curtain",
+                "drape",
+                "blind",
+                "shade",
+                "rug",
+                "carpet",
+                "mat",
+                "light",
+                "lamp",
+                "chandelier",
+                "bath",
+                "shower",
+                "toilet",
+                "sink",
+                "kitchen",
+                "dining",
+                "bedroom",
+                "living",
+                "study",
+                "office",
+            ]
+
+            if any(keyword in user_lower for keyword in product_keywords):
+                # This is likely a product type, treat as PRODUCT_SEARCH
+                state["intent"] = IntentType.PRODUCT_SEARCH
+                state["intent_confidence"] = 0.8
+                state["intent_scores"] = {IntentType.PRODUCT_SEARCH.value: 0.8}
+                print(
+                    f"[{timestamp}] Short message detected as product type: {user_lower}"
+                )
+                # Continue with slot extraction below
+            else:
+                # Let the classifier handle it
+                pass
 
     # Slot correction
     if detect_and_apply_correction(state, user_message):
@@ -1168,33 +1328,6 @@ def classify_node(state: AgentState) -> AgentState:
                             f"[{timestamp}] Reference intent but legitimate product type '{extracted_product}' detected - keeping extraction"
                         )
 
-                # Check if product_type is changing and clear irrelevant slots
-                new_product_type = None
-                if "PRODUCT_TYPE" in extracted_slots:
-                    new_product_type = extracted_slots["PRODUCT_TYPE"]
-                elif "PRODUCT_NAME" in extracted_slots:
-                    new_product_type = extracted_slots["PRODUCT_NAME"]
-
-                if new_product_type and "product_type" in state.get("slots", {}):
-                    current_product_type = state["slots"]["product_type"]
-                    if new_product_type.lower() != current_product_type.lower():
-                        print(
-                            f"[{timestamp}] Product type changing from '{current_product_type}' to '{new_product_type}', clearing irrelevant slots"
-                        )
-                        # Clear slots that are specific to the previous product type
-                        slots_to_clear = [
-                            "brand",
-                            "material",
-                            "color",
-                            "size",
-                            "style",
-                            "product_name",
-                        ]
-                        for slot_to_clear in slots_to_clear:
-                            if slot_to_clear in state.get("slots", {}):
-                                del state["slots"][slot_to_clear]
-                                print(f"[{timestamp}] Cleared slot: {slot_to_clear}")
-
                 # Update slots with extracted entities
                 for entity_type, value in extracted_slots.items():
                     if entity_type in slot_mapping:
@@ -1350,15 +1483,23 @@ def retrieve_node(state: AgentState) -> AgentState:
     user_message = state.get("user_message", "")
     slots = state.get("slots", {})
 
-    # Build a better search query using extracted product type
-    search_query = user_message
+    # Build search queries for multiple product types
+    search_queries = []
     if slots.get("product_type"):
-        product_type = slots["product_type"]
-        # Use the product type for more targeted search
-        search_query = f"{product_type} products"
-        print(
-            f"[{timestamp}] Using enhanced search query: '{search_query}' (from product_type: {product_type})"
-        )
+        product_types = [pt.strip() for pt in slots["product_type"].split(",")]
+        size = slots.get("size", "")
+
+        for product_type in product_types:
+            if size:
+                search_query = f"{size} {product_type}"
+            else:
+                search_query = f"{product_type}"
+            search_queries.append(search_query)
+            print(
+                f"[{timestamp}] Added search query: '{search_query}' (size: {size}, product_type: {product_type})"
+            )
+    else:
+        search_queries = [user_message]
 
     # Get more documents for the final response
     retrieve_start = time.time()
@@ -1366,36 +1507,63 @@ def retrieve_node(state: AgentState) -> AgentState:
     # Try multiple search strategies for better results
     all_docs = []
 
-    # Strategy 1: Original search query
-    docs1 = retriever.retrieve(search_query, k=5) if retriever else []
-    all_docs.extend(docs1)
+    # Strategy 1: Primary search queries for each product type
+    for search_query in search_queries:
+        docs1 = (
+            retriever.retrieve(search_query, k=5) if retriever else []
+        )  # Increased to 5 per query for better coverage
+        all_docs.extend(docs1)
+        print(
+            f"[{timestamp}] Added {len(docs1)} docs from primary search: '{search_query}'"
+        )
 
-    # Strategy 2: If we have product type mappings, try searching by sub-category
-    product_type_mappings = None
-    if retriever and hasattr(retriever, "get_product_type_mappings"):
-        product_type_mappings = retriever.get_product_type_mappings()
+    # Strategy 2: Search by product types with furniture category
+    if slots.get("product_type"):
+        product_types = [pt.strip() for pt in slots["product_type"].split(",")]
+        size = slots.get("size", "")
 
-    if slots.get("product_type") and product_type_mappings:
-        product_type = slots["product_type"]
-        mapped_category = product_type_mappings.get(product_type.lower())
-        if mapped_category:
-            # Search for the product type specifically
-            sub_category_search = f"Sub Category: {product_type}"
-            docs2 = retriever.retrieve(sub_category_search, k=3) if retriever else []
+        for product_type in product_types:
+            # Try furniture-specific searches
+            if size:
+                furniture_search = f"furniture {size} {product_type}"
+            else:
+                furniture_search = f"furniture {product_type}"
+
+            docs2 = retriever.retrieve(furniture_search, k=5) if retriever else []
             all_docs.extend(docs2)
             print(
-                f"[{timestamp}] Added {len(docs2)} docs from sub-category search: '{sub_category_search}'"
+                f"[{timestamp}] Added {len(docs2)} docs from furniture search: '{furniture_search}'"
             )
 
-    # Strategy 3: Search for the product type directly
+    # Strategy 3: Search by product types with room context
+    if slots.get("product_type") and slots.get("room_type"):
+        product_types = [pt.strip() for pt in slots["product_type"].split(",")]
+        room_type = slots["room_type"]
+        size = slots.get("size", "")
+
+        for product_type in product_types:
+            if size:
+                room_search = f"{room_type} {size} {product_type}"
+            else:
+                room_search = f"{room_type} {product_type}"
+
+            docs3 = retriever.retrieve(room_search, k=5) if retriever else []
+            all_docs.extend(docs3)
+            print(
+                f"[{timestamp}] Added {len(docs3)} docs from room search: '{room_search}'"
+            )
+
+    # Strategy 4: Direct product type searches (fallback)
     if slots.get("product_type"):
-        product_type = slots["product_type"]
-        direct_search = f"{product_type}"
-        docs3 = retriever.retrieve(direct_search, k=3) if retriever else []
-        all_docs.extend(docs3)
-        print(
-            f"[{timestamp}] Added {len(docs3)} docs from direct search: '{direct_search}'"
-        )
+        product_types = [pt.strip() for pt in slots["product_type"].split(",")]
+
+        for product_type in product_types:
+            direct_search = f"{product_type}"
+            docs4 = retriever.retrieve(direct_search, k=5) if retriever else []
+            all_docs.extend(docs4)
+            print(
+                f"[{timestamp}] Added {len(docs4)} docs from direct search: '{direct_search}'"
+            )
 
     # Remove duplicates based on content
     unique_docs = []
@@ -1406,7 +1574,9 @@ def retrieve_node(state: AgentState) -> AgentState:
             unique_docs.append(doc)
             seen_content.add(content_hash)
 
-    docs = unique_docs[:3]  # Limit to 3 docs for faster processing
+    docs = unique_docs[
+        :10
+    ]  # Limit to 10 docs for response (increased to ensure we get 5 products)
     retrieve_end = time.time()
     retrieve_time = retrieve_end - retrieve_start
 
@@ -1778,8 +1948,6 @@ Response:"""
                 ):
                     # If LLM returned JSON, extract just the message part
                     try:
-                        import json
-
                         parsed = json.loads(warranty_message)
                         if "message" in parsed:
                             warranty_message = parsed["message"]
@@ -1839,28 +2007,146 @@ Response:"""
     slot_str = ", ".join([f"{k}: {v}" for k, v in slots.items()])
 
     # Enhanced prompt with all required fields for UI card display
-    simple_prompt = f"""Extract product information from the context and format as JSON with all required fields for UI display.
+    # Check if the retrieved products match the requested product type
+    requested_product_type = slots.get("product_type", "").lower()
+    context_lower = context.lower()
 
-IMPORTANT: Return ONLY valid JSON in this exact format:
+    # Check for competitor brands in the request
+    competitor_brands = [
+        "pepperfry",
+        "pepper fry",
+        "urban ladder",
+        "urbanladder",
+        "homecentre",
+        "home centre",
+        "ikea",
+        "godrej",
+        "hometown",
+        "home town",
+        "fabindia",
+        "fab india",
+        "westside",
+        "west side",
+        "shoppers stop",
+        "shoppersstop",
+    ]
+
+    is_competitor_request = any(
+        brand in requested_product_type for brand in competitor_brands
+    )
+
+    if is_competitor_request:
+        # Handle competitor requests appropriately
+        summary_template = f"I understand you're looking for products from {requested_product_type}. We are Asian Paints Beautiful Homes, and we offer our own range of home decor and furniture products. Would you like to explore our collection instead?"
+        print(f"[{timestamp}] Detected competitor request: {requested_product_type}")
+        print(f"[{timestamp}] Using competitor response template")
+    else:
+        # Check if exact product type is found in context
+        exact_match_found = requested_product_type in context_lower
+
+        # Determine the actual product types found in the context
+        found_product_types = []
+        if "towel rack" in context_lower or "towel bracket" in context_lower:
+            found_product_types.append("towel racks")
+        if "rug" in context_lower:
+            found_product_types.append("rugs")
+        if (
+            "light" in context_lower
+            or "lamp" in context_lower
+            or "chandelier" in context_lower
+        ):
+            found_product_types.append("lighting")
+        if "curtain" in context_lower or "drape" in context_lower:
+            found_product_types.append("curtains")
+        if (
+            "sofa" in context_lower
+            or "chair" in context_lower
+            or "table" in context_lower
+        ):
+            found_product_types.append("furniture")
+        if "fabric" in context_lower:
+            found_product_types.append("fabrics")
+
+        # Create smart summary based on match status
+        print(f"[{timestamp}] Requested product type: {requested_product_type}")
+        print(f"[{timestamp}] Exact match found: {exact_match_found}")
+        print(f"[{timestamp}] Found product types: {found_product_types}")
+
+        if exact_match_found:
+            summary_template = (
+                f"Here are some beautiful {requested_product_type} for your home"
+            )
+        else:
+            if found_product_types:
+                found_types_str = ", ".join(found_product_types)
+                summary_template = f"Sorry, we don't currently carry {requested_product_type}. However, we do have some excellent {found_types_str} that might serve your needs. Would you like to explore these alternatives?"
+            else:
+                summary_template = f"Sorry, we don't currently carry {requested_product_type}. Please try searching for a different product category or contact our customer service for assistance."
+
+    print(f"[{timestamp}] Using summary template: {summary_template}")
+
+    simple_prompt = f"""
+Extract EXACTLY 5 products from the context and format as JSON. If fewer than 5 products are available in the context, extract all available products.
+
 {{
   "type": "product_suggestion",
-  "summary": "Product suggestions",
+  "summary": "{summary_template}",
   "products": [
     {{
-      "name": "Product Name",
-      "price": "Original Price (MRP)",
-      "discounted_price": "Discounted Price",
-      "description": "Brief description",
-      "featuredImg": "Image URL",
-      "url": "Product URL"
+      "name": "Product 1",
+      "price": "Price 1",
+      "discounted_price": "Discounted Price 1",
+      "description": "Brief description 1",
+      "featuredImg": "Image URL 1",
+      "url": "Product URL 1"
+    }},
+    {{
+      "name": "Product 2",
+      "price": "Price 2",
+      "discounted_price": "Discounted Price 2",
+      "description": "Brief description 2",
+      "featuredImg": "Image URL 2",
+      "url": "Product URL 2"
+    }},
+    {{
+      "name": "Product 3",
+      "price": "Price 3",
+      "discounted_price": "Discounted Price 3",
+      "description": "Brief description 3",
+      "featuredImg": "Image URL 3",
+      "url": "Product URL 3"
+    }},
+    {{
+      "name": "Product 4",
+      "price": "Price 4",
+      "discounted_price": "Discounted Price 4",
+      "description": "Brief description 4",
+      "featuredImg": "Image URL 4",
+      "url": "Product URL 4"
+    }},
+    {{
+      "name": "Product 5",
+      "price": "Price 5",
+      "discounted_price": "Discounted Price 5",
+      "description": "Brief description 5",
+      "featuredImg": "Image URL 5",
+      "url": "Product URL 5"
     }}
   ]
 }}
 
+IMPORTANT: 
+- Extract EXACTLY 5 products if available in the context. If fewer than 5 products are found, extract all available products.
+- Keep descriptions brief (max 80 chars).
+- Use the provided summary: "{summary_template}"
+- Use descriptive adjectives like "beautiful", "elegant", "stunning", "marvelous", "gorgeous", "sophisticated", "charming", "luxurious", "cozy", "modern", "classic", "trendy", "premium", "handcrafted", "artisanal".
+- If exact products aren't found, suggest related alternatives in the summary.
+- Ensure each product has complete information (name, price, description, image, URL).
+
 Context:
 {context}
 
-Return ONLY the JSON:"""
+Return ONLY the JSON."""
 
     print(f"[{timestamp}] Using simplified prompt for faster processing...")
     llm_start = time.time()
@@ -1911,7 +2197,72 @@ Return ONLY the JSON:"""
 
     # Parse the response to count products
     try:
-        response_data = json.loads(response)
+        # First try to fix truncated JSON if needed
+        response_text = response.strip()
+        try:
+            response_data = json.loads(response_text)
+        except json.JSONDecodeError as e:
+            if "Unterminated string" in str(e) or "Expecting ',' delimiter" in str(e):
+                print(
+                    f"[{timestamp}] Detected truncated JSON in reason_node, attempting to fix..."
+                )
+
+                # Try to find the last complete product and truncate there
+                lines = response_text.split("\n")
+                fixed_lines = []
+                bracket_count = 0
+                in_products_array = False
+
+                for line in lines:
+                    if '"products": [' in line:
+                        in_products_array = True
+                        bracket_count += 1
+                        fixed_lines.append(line)
+                    elif in_products_array:
+                        if line.strip().startswith("{"):
+                            bracket_count += 1
+                        elif line.strip().startswith("}"):
+                            bracket_count -= 1
+                            if bracket_count == 0:
+                                in_products_array = False
+                        elif line.strip().startswith("]"):
+                            bracket_count -= 1
+                            in_products_array = False
+
+                        # Only add line if it's complete (not truncated mid-string)
+                        if not line.strip().endswith('"') or line.strip().endswith(
+                            '",'
+                        ):
+                            fixed_lines.append(line)
+                        else:
+                            # This line appears to be truncated, skip it and close the JSON
+                            break
+                    else:
+                        fixed_lines.append(line)
+
+                # Close the JSON properly
+                if in_products_array:
+                    fixed_lines.append("    }")
+                    fixed_lines.append("  ]")
+                fixed_lines.append("}")
+
+                fixed_response = "\n".join(fixed_lines)
+                print(
+                    f"[{timestamp}] Attempting to parse fixed JSON in reason_node: {fixed_response}"
+                )
+
+                try:
+                    response_data = json.loads(fixed_response)
+                    response = fixed_response  # Update the response for later use
+                    print(
+                        f"[{timestamp}] Successfully parsed fixed JSON in reason_node"
+                    )
+                except json.JSONDecodeError as e2:
+                    print(f"[{timestamp}] Fixed JSON also failed in reason_node: {e2}")
+                    raise e  # Re-raise original error
+            else:
+                raise e
+
         if (
             response_data.get("type") == "product_suggestion"
             and "products" in response_data
@@ -2005,13 +2356,73 @@ def parse_and_validate_response(response: str, timestamp: str) -> Union[Dict, st
             print(f"[{timestamp}] Successfully parsed JSON")
         except json.JSONDecodeError as e:
             print(f"[{timestamp}] JSON parsing failed: {e}")
-            # If JSON parsing fails, try to convert Python dict to JSON
-            json_text = response_text.replace("'", '"')
-            json_text = json_text.replace('"None"', "null")
-            json_text = json_text.replace('"True"', "true")
-            json_text = json_text.replace('"False"', "false")
-            print(f"[{timestamp}] Trying with converted quotes: {json_text}")
-            parsed_response = json.loads(json_text)
+
+            # Check if the response is truncated (common issue with long responses)
+            if "Unterminated string" in str(e) or "Expecting ',' delimiter" in str(e):
+                print(f"[{timestamp}] Detected truncated JSON, attempting to fix...")
+
+                # Try to find the last complete product and truncate there
+                lines = response_text.split("\n")
+                fixed_lines = []
+                bracket_count = 0
+                in_products_array = False
+
+                for line in lines:
+                    if '"products": [' in line:
+                        in_products_array = True
+                        bracket_count += 1
+                        fixed_lines.append(line)
+                    elif in_products_array:
+                        if line.strip().startswith("{"):
+                            bracket_count += 1
+                        elif line.strip().startswith("}"):
+                            bracket_count -= 1
+                            if bracket_count == 0:
+                                in_products_array = False
+                        elif line.strip().startswith("]"):
+                            bracket_count -= 1
+                            in_products_array = False
+
+                        # Only add line if it's complete (not truncated mid-string)
+                        if not line.strip().endswith('"') or line.strip().endswith(
+                            '",'
+                        ):
+                            fixed_lines.append(line)
+                        else:
+                            # This line appears to be truncated, skip it and close the JSON
+                            break
+                    else:
+                        fixed_lines.append(line)
+
+                # Close the JSON properly
+                if in_products_array:
+                    fixed_lines.append("    }")
+                    fixed_lines.append("  ]")
+                fixed_lines.append("}")
+
+                fixed_response = "\n".join(fixed_lines)
+                print(f"[{timestamp}] Attempting to parse fixed JSON: {fixed_response}")
+
+                try:
+                    parsed_response = json.loads(fixed_response)
+                    print(f"[{timestamp}] Successfully parsed fixed JSON")
+                except json.JSONDecodeError as e2:
+                    print(f"[{timestamp}] Fixed JSON also failed: {e2}")
+                    # Fall back to original error handling
+                    json_text = response_text.replace("'", '"')
+                    json_text = json_text.replace('"None"', "null")
+                    json_text = json_text.replace('"True"', "true")
+                    json_text = json_text.replace('"False"', "false")
+                    print(f"[{timestamp}] Trying with converted quotes: {json_text}")
+                    parsed_response = json.loads(json_text)
+            else:
+                # If JSON parsing fails, try to convert Python dict to JSON
+                json_text = response_text.replace("'", '"')
+                json_text = json_text.replace('"None"', "null")
+                json_text = json_text.replace('"True"', "true")
+                json_text = json_text.replace('"False"', "false")
+                print(f"[{timestamp}] Trying with converted quotes: {json_text}")
+                parsed_response = json.loads(json_text)
 
         if isinstance(parsed_response, dict):
             response_type = parsed_response.get("type")
@@ -2375,24 +2786,54 @@ def fast_semantic_slot_processor_node(state: AgentState) -> AgentState:
 
     # --- 2. Handle new product requests ---
     if is_new_request:
+        print(f"[{timestamp}] [FAST_SLOT_PROCESSOR] Processing new product request")
         # Fast extraction using regex + keywords
         new_slots = _extract_slots_fast(user_message)
+        print(f"[{timestamp}] [FAST_SLOT_PROCESSOR] Extracted new slots: {new_slots}")
 
         # Smart category change detection
-        last_product_type = state.get("last_product_type")
+        current_product_type = current_slots.get("product_type")
         new_product_type = new_slots.get("product_type")
+
+        print(
+            f"[{timestamp}] [FAST_SLOT_PROCESSOR] Current product_type: {current_product_type}"
+        )
+        print(
+            f"[{timestamp}] [FAST_SLOT_PROCESSOR] New product_type: {new_product_type}"
+        )
 
         if (
             new_product_type
-            and last_product_type
-            and new_product_type != last_product_type
+            and current_product_type
+            and new_product_type.lower() != current_product_type.lower()
         ):
             print(
-                f"[{timestamp}] [FAST_SLOT_PROCESSOR] Category changed: {last_product_type} → {new_product_type}"
+                f"[{timestamp}] [FAST_SLOT_PROCESSOR] Category changed: {current_product_type} → {new_product_type}, clearing irrelevant slots"
             )
-            current_slots = new_slots  # Clear old context
+            # Clear slots that are specific to the previous product type
+            slots_to_clear = [
+                "brand",
+                "material",
+                "color",
+                "size",
+                "style",
+                "product_name",
+            ]
+            for slot_to_clear in slots_to_clear:
+                if slot_to_clear in current_slots:
+                    del current_slots[slot_to_clear]
+                    print(
+                        f"[{timestamp}] [FAST_SLOT_PROCESSOR] Cleared slot: {slot_to_clear}"
+                    )
+
+            # Replace with new slots
+            current_slots = new_slots
+            print(
+                f"[{timestamp}] [FAST_SLOT_PROCESSOR] Replaced slots with: {current_slots}"
+            )
         else:
             current_slots.update(new_slots)  # Merge
+            print(f"[{timestamp}] [FAST_SLOT_PROCESSOR] Merged slots: {current_slots}")
 
         if new_product_type:
             state["last_product_type"] = new_product_type
@@ -2483,6 +2924,40 @@ def _extract_slots_fast(message: str) -> dict:
     return slots
 
 
+# --- Competitor Redirect Node ---
+
+
+def competitor_redirect_node(state: AgentState) -> AgentState:
+    """
+    Handle competitor brand queries by providing polite redirect responses.
+    """
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] Starting competitor_redirect_node...")
+
+    # Get the competitor response that was set in classify_node
+    competitor_response = state.get("competitor_response", {})
+
+    if not competitor_response:
+        # Fallback response if no competitor response is found
+        competitor_response = {
+            "type": "competitor_redirect",
+            "message": "I understand you're looking for home decor products. While I can't access other brands' catalogs, I'd be happy to help you find beautiful alternatives from our exclusive collection. We offer a wide range of furniture, rugs, lights, and furnishing items. What type of product are you looking for today?",
+            "suggested_categories": [
+                "furniture",
+                "rugs",
+                "lights",
+                "furnishing",
+                "bath",
+            ],
+        }
+
+    # Set the response in the state
+    state["llm_response"] = competitor_response
+
+    print(f"[{timestamp}] competitor_redirect_node total response time: 0.00 seconds")
+    return state
+
+
 # --- LangGraph Workflow ---
 
 
@@ -2492,7 +2967,7 @@ def build_langgraph_agent(retriever, openai_api_key: str):
         temperature=0,
         request_timeout=60,  # Increased timeout to prevent timeouts
         model="gpt-3.5-turbo",  # Use faster model
-        max_tokens=1000,  # Limit response length for faster generation
+        max_tokens=1200,  # Increased to allow 5 products
     )
 
     state_schema = AgentState
@@ -2506,6 +2981,7 @@ def build_langgraph_agent(retriever, openai_api_key: str):
     graph.add_node("clarify", clarify_node)
     graph.add_node("reject", reject_node)
     graph.add_node("meta", meta_node)
+    graph.add_node("competitor_redirect", competitor_redirect_node)
 
     # Routing logic with enhanced debugging
     def route_by_intent(state):
@@ -2529,14 +3005,17 @@ def build_langgraph_agent(retriever, openai_api_key: str):
             IntentType.PRODUCT_DETAIL,
             IntentType.BUDGET_QUERY,
             IntentType.PRODUCT,
+            IntentType.WARRANTY_QUERY,
         ]:
-            print(f"[ROUTING] 🎯 Routing {intent.value} to retrieve_node")
-            return "retrieve"
-        elif intent == IntentType.WARRANTY_QUERY:
             print(
-                f"[ROUTING] 🎯 Routing WARRANTY_QUERY to slot_processor (for context handling)"
+                f"[ROUTING] 🎯 Routing {intent.value} to slot_processor (for smart slot management)"
             )
             return "slot_processor"
+        elif intent == IntentType.COMPETITOR_REDIRECT:
+            print(
+                f"[ROUTING] 🎯 Routing COMPETITOR_REDIRECT to competitor_redirect_node"
+            )
+            return "competitor_redirect"
         elif intent == IntentType.INVALID:
             print(f"[ROUTING] 🎯 Routing INVALID to reject_node")
             return "reject"
@@ -2558,8 +3037,8 @@ def build_langgraph_agent(retriever, openai_api_key: str):
         {
             "meta": "meta",
             "clarify": "clarify",
-            "retrieve": "retrieve",
             "slot_processor": "slot_processor",
+            "competitor_redirect": "competitor_redirect",
             "reject": "reject",
         },
     )
@@ -2568,6 +3047,7 @@ def build_langgraph_agent(retriever, openai_api_key: str):
     graph.add_edge("reason", END)
     graph.add_edge("meta", END)
     graph.add_edge("clarify", END)
+    graph.add_edge("competitor_redirect", END)
     graph.add_edge("reject", END)
 
     # Set start node

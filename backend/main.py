@@ -141,24 +141,26 @@ async def chat_endpoint(request: ChatRequest):
     if isinstance(response, BaseModel):
         response = response.model_dump()
 
-    # Check if response is already a dict (product suggestion) or string
-    if isinstance(response, dict):
-        response_type = response.get("type")
-        if response_type in [
-            "product_suggestion",
-            "category_not_found",
-            "budget_constraint",
-            "clarification",
-            "error",
-            "greeting",  # Added to handle greeting responses
-            "category_list",  # Added to handle category list responses
-            "product_detail",  # Added to handle product detail responses
-            "text",  # Added to handle text responses (like warranty info)
-        ]:
-            print(f"[{timestamp}] Returning {response_type}")
-            result = {"response": response, "type": response_type}
-            print(f"[{timestamp}] Returning to frontend: {result}")
-            return result
+            # Check if response is already a dict (product suggestion) or string
+        if isinstance(response, dict):
+            response_type = response.get("type")
+            if response_type in [
+                "product_suggestion",
+                "category_not_found",
+                "budget_constraint",
+                "clarification",
+                "error",
+                "greeting",  # Added to handle greeting responses
+                "category_list",  # Added to handle category list responses
+                "product_detail",  # Added to handle product detail responses
+                "competitor_redirect",  # Added to handle competitor redirect responses
+                "competitor_budget_redirect",  # Added to handle competitor budget redirect responses
+                "text",  # Added to handle text responses (like warranty info)
+            ]:
+                print(f"[{timestamp}] Returning {response_type}")
+                result = {"response": response, "type": response_type}
+                print(f"[{timestamp}] Returning to frontend: {result}")
+                return result
     elif isinstance(response, list):
         print(f"[{timestamp}] Returning category list")
         result = {"response": response, "type": "category_list"}
